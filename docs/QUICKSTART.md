@@ -12,7 +12,7 @@ pip install -r runtime/requirements.txt
 cp runtime/.env.example runtime/.env
 ```
 Open `runtime/.env` and paste in:
-- `ANTHROPIC_API_KEY` — from console.anthropic.com (the agents' brain)
+- A **free LLM key** (the agents' brain) — default is `LLM_API_KEY` from Google Gemini at aistudio.google.com (free, no card). Groq/OpenRouter also work; presets are in `.env.example`.
 - `COMPOSIO_API_KEY` — from app.composio.dev (the agents' tools)
 
 In Composio, connect the apps your agents use (GitHub, Gmail, etc.). Each agent's
@@ -44,4 +44,4 @@ charge a subscription. Keys are only for self-hosters (Community tier).
 **Can I add an 11th agent?** Yes. Add it to the `AGENTS` list in `build_agents.py` and
 re-run `python build_agents.py`. Everything regenerates.
 
-**Which model?** Default is `claude-opus-4-8`. Change `DECAGENT_MODEL` in `.env`.
+**Which model?** Default is free **Gemini** (`gemini-2.0-flash`). Change `LLM_MODEL` (and `LLM_BASE_URL`/`LLM_API_KEY`) in `.env` to use Groq, OpenRouter, OpenAI, or Claude.

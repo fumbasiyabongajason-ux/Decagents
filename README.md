@@ -37,7 +37,7 @@ Each agent lives in `agents/<id>/` with three files: its plain-language `system_
 git clone https://github.com/fumbasiyabongajason-ux/Decagents.git
 cd Decagents
 pip install -r runtime/requirements.txt
-cp runtime/.env.example runtime/.env      # add your Anthropic + Composio keys
+cp runtime/.env.example runtime/.env      # add a FREE LLM key (Gemini) + Composio
 
 python runtime/decagent.py --list
 python runtime/decagent.py --agent scout -m "Research the home-fitness market in 2026"

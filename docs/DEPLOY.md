@@ -4,7 +4,7 @@ This gets you a real `https://…` link you can open from any browser — laptop
 without running anything locally. We'll use **Render** (free tier works fine).
 
 ## Before you start — get 3 things
-1. **Anthropic API key** — sign up at console.anthropic.com → API keys → create. (Required.)
+1. **Free LLM key (Google Gemini)** — go to aistudio.google.com → "Get API key" → create. Free, no card. (Required.) *(Groq or OpenRouter work too — see `runtime/.env.example`.)*
 2. **Composio API key** — sign up at app.composio.dev → copy your key. Then connect the
    apps your agents use (GitHub, Gmail, etc.). (Needed for agents that take real actions.)
 3. **A password you'll make up** — anything memorable. This locks your URL so only you can use it.
@@ -16,7 +16,7 @@ without running anything locally. We'll use **Render** (free tier works fine).
 3. Sign in to Render with GitHub and approve access to the repo.
 4. Render reads `render.yaml` automatically and shows the service. It will ask you to fill
    in the three secret values:
-   - `ANTHROPIC_API_KEY` → paste your Anthropic key
+   - `LLM_API_KEY` → paste your free Google Gemini key
    - `COMPOSIO_API_KEY` → paste your Composio key
    - `DECAGENT_PASSWORD` → type the password you chose
 5. Click **Apply** / **Create**. Render builds it (a few minutes the first time).
@@ -27,11 +27,11 @@ without running anything locally. We'll use **Render** (free tier works fine).
 - **Free tier sleeps.** After ~15 min idle, the first visit takes ~50 seconds to wake up.
   Upgrade to a paid instance (~$7/mo) if you want it always-on and instant.
 - **Your password protects your money.** Anyone with the URL *and* the password can use the
-  agents — which spend your Anthropic credits and can touch your connected Gmail/GitHub.
+  agents — which use your LLM quota and can touch your connected Gmail/GitHub.
   Keep the password private; change it anytime in Render → Environment.
 - **Updating it later:** push changes to the repo's `main` branch and Render auto-redeploys.
-- **Costs:** Render free + your Anthropic usage (pay per use) + Composio (has a free tier).
-  A light personal user typically spends a few dollars a month on Anthropic.
+- **Costs:** Render free + Gemini free tier + Composio free tier = **$0** for normal personal
+  use. If you outgrow Gemini's free quota, switch `LLM_MODEL`/provider or add billing.
 
 ## Other hosts
 The same app runs anywhere that hosts a Python web service — Railway, Fly.io, or your own

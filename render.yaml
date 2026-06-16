@@ -15,11 +15,14 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.9"             # modern Python (avoids old-syntax issues)
-      - key: DECAGENT_MODEL
-        value: claude-opus-4-8
+      # --- FREE provider by default: Google Gemini (swap to Groq/OpenRouter if you like) ---
+      - key: LLM_BASE_URL
+        value: https://generativelanguage.googleapis.com/v1beta/openai/
+      - key: LLM_MODEL
+        value: gemini-2.0-flash
       # --- You paste these in the Render dashboard (kept secret, never in git) ---
-      - key: ANTHROPIC_API_KEY
-        sync: false                 # required — the agents' brain
+      - key: LLM_API_KEY
+        sync: false                 # required — your FREE Google AI Studio key (aistudio.google.com)
       - key: COMPOSIO_API_KEY
         sync: false                 # needed for tools (GitHub, Gmail, scraping, leads…)
       - key: DECAGENT_PASSWORD

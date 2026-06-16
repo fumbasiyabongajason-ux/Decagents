@@ -11,7 +11,7 @@ cp runtime/.env.example runtime/.env     # then paste in your keys
 ```
 
 You need two keys:
-- **Anthropic** (`ANTHROPIC_API_KEY`) — the brain. Get it at console.anthropic.com.
+- **A free LLM key** — the brain. Easiest: **Google Gemini** at aistudio.google.com (free, no card). Groq and OpenRouter also work — see `.env.example`.
 - **Composio** (`COMPOSIO_API_KEY`) — the hands (GitHub, Gmail, scraping, leads…). Get it at app.composio.dev, then connect the apps each agent uses.
 
 > No Composio key? The agents still run as plain chat assistants — they just can't take actions in the outside world yet.
