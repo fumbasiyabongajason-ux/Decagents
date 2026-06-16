@@ -1,0 +1,29 @@
+{
+  "id": "outreach",
+  "name": "Outreach",
+  "emoji": "\u2709\ufe0f",
+  "version": "0.1.0",
+  "tagline": "Write emails that actually get replies.",
+  "description": "Outreach writes cold emails, follow-up sequences, and replies that sound human and get responses. It personalizes each message, drafts everything in Gmail for your review, and never sends without your say-so.",
+  "tier": "Starter",
+  "price": "$29/mo",
+  "model": "claude-opus-4-8",
+  "composio_toolkits": [
+    "gmail",
+    "googlesheets"
+  ],
+  "capabilities": [
+    "Write personalized cold emails and multi-step follow-up sequences",
+    "Draft replies to inbound emails in your voice",
+    "Personalize at scale from a lead list",
+    "Save everything as Gmail drafts for your review \u2014 never auto-send",
+    "Track who was contacted and when"
+  ],
+  "example_prompts": [
+    "Write a 3-email cold sequence for my web design service to local restaurants.",
+    "Draft a friendly follow-up to the leads who haven't replied in a week.",
+    "Reply to this inquiry and propose three times for a call."
+  ],
+  "system_prompt_file": "system_prompt.md",
+  "entrypoint": "../../runtime/decagent.py"
+}

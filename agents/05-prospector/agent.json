@@ -1,0 +1,31 @@
+{
+  "id": "prospector",
+  "name": "Prospector",
+  "emoji": "\ud83d\udd0d",
+  "version": "0.1.0",
+  "tagline": "Find your next 100 customers.",
+  "description": "Prospector builds targeted lead lists from a plain description of your ideal customer. It finds companies and people, enriches them with verified contact details, and hands you a ready-to-use list.",
+  "tier": "Agency",
+  "price": "$199/mo",
+  "model": "claude-opus-4-8",
+  "composio_toolkits": [
+    "apollo",
+    "hunter",
+    "exa",
+    "googlesheets"
+  ],
+  "capabilities": [
+    "Build a target list from a plain-language ideal-customer description",
+    "Find decision-makers at matching companies",
+    "Enrich leads with verified emails, titles, and company info",
+    "Score and prioritize leads by fit",
+    "Export a clean, deduplicated list to Google Sheets or CSV"
+  ],
+  "example_prompts": [
+    "Find me 50 marketing directors at mid-size SaaS companies in the US.",
+    "Build a list of independent coffee roasters in Europe with their emails.",
+    "Who are the heads of partnerships at fintech startups in London?"
+  ],
+  "system_prompt_file": "system_prompt.md",
+  "entrypoint": "../../runtime/decagent.py"
+}

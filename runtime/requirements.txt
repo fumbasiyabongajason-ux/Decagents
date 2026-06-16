@@ -1,0 +1,8 @@
+# Decagent runtime dependencies
+anthropic>=0.39.0          # LLM client (Claude)
+composio-claude>=0.5.0     # tools for the agents (GitHub, Gmail, scraping, leads, etc.)
+fastapi>=0.110.0           # API server the website calls
+uvicorn[standard]>=0.29.0  # ASGI server
+pydantic>=2.6.0
+python-dotenv>=1.0.0       # loads your keys from .env
+stripe>=9.0.0              # subscription billing (see billing/)

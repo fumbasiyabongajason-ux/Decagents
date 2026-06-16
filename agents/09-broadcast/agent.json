@@ -1,0 +1,30 @@
+{
+  "id": "broadcast",
+  "name": "Broadcast",
+  "emoji": "\ud83d\udce1",
+  "version": "0.1.0",
+  "tagline": "Run all your social channels from one place.",
+  "description": "Broadcast plans, writes, and posts across your social channels. It adapts each message to the platform, keeps a consistent voice, and can schedule a whole content calendar.",
+  "tier": "Agency",
+  "price": "$199/mo",
+  "model": "claude-opus-4-8",
+  "composio_toolkits": [
+    "twitter",
+    "linkedin",
+    "reddit"
+  ],
+  "capabilities": [
+    "Plan and schedule a multi-platform content calendar",
+    "Write platform-native posts \u2014 not the same copy everywhere",
+    "Post to X, LinkedIn, Reddit, and more",
+    "Repurpose one idea into many formats",
+    "Suggest the best times and channels for your audience"
+  ],
+  "example_prompts": [
+    "Plan a week of posts promoting my new product across X and LinkedIn.",
+    "Turn this announcement into a post for each of my channels.",
+    "Find the best subreddits for my tool and draft a post that won't get removed."
+  ],
+  "system_prompt_file": "system_prompt.md",
+  "entrypoint": "../../runtime/decagent.py"
+}

@@ -1,0 +1,37 @@
+Decagent — Source-Available Commercial License
+Copyright (c) 2026 Siyabonga Fumba. All rights reserved.
+
+This software and the agent definitions in this repository (the "Software") are
+made available under the following terms.
+
+1. PERMITTED — FREE
+   You may use, copy, modify, and self-host the Software for personal use,
+   internal business use, and evaluation, including running the agents with your
+   own API keys.
+
+2. REQUIRES A COMMERCIAL LICENSE
+   You may NOT, without a separate commercial license from the copyright holder:
+     (a) resell, relicense, or redistribute the Software or the agent definitions
+         as a product, whether modified or not; or
+     (b) operate the Software as a paid or subscription service for third parties.
+   The copyright holder operates such a paid service and grants commercial
+   licenses; contact the copyright holder to obtain one.
+
+3. ATTRIBUTION
+   Retain this license and the copyright notice in all copies and substantial
+   portions of the Software.
+
+4. NO WARRANTY
+   THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+   IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+   FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+   AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+   LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+   OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+   SOFTWARE.
+
+---
+NOTE: This is a sensible default that keeps the product free to try but protected
+from being resold out from under you. It is not legal advice. If real money is on
+the line, have a lawyer confirm it fits your plans. Prefer fully open-source? Swap
+this for the MIT or Apache-2.0 license text instead.

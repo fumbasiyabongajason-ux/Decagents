@@ -1,0 +1,46 @@
+{
+  "currency": "usd",
+  "tiers": [
+    {
+      "id": "community",
+      "name": "Community",
+      "price_monthly": 0,
+      "stripe_price_id": "",
+      "tagline": "Self-host. Bring your own keys.",
+      "includes_agents": "all (self-hosted from GitHub)",
+      "limits": "You run it on your own machine/server with your own API keys.",
+      "best_for": "Developers and tinkerers"
+    },
+    {
+      "id": "starter",
+      "name": "Starter",
+      "price_monthly": 29,
+      "stripe_price_id": "price_REPLACE_starter",
+      "tagline": "The solo-creator toolkit.",
+      "includes_agents": ["outreach", "scribe", "scout", "concierge"],
+      "limits": "Fair-use message cap per month; 1 connected workspace.",
+      "best_for": "Freelancers, creators, solopreneurs"
+    },
+    {
+      "id": "pro",
+      "name": "Pro",
+      "price_monthly": 79,
+      "stripe_price_id": "price_REPLACE_pro",
+      "tagline": "Build and grow.",
+      "includes_agents": ["outreach", "scribe", "scout", "concierge", "builder", "webwright", "harvest"],
+      "limits": "Higher message cap; 3 connected workspaces.",
+      "best_for": "Small businesses and indie founders"
+    },
+    {
+      "id": "agency",
+      "name": "Agency",
+      "price_monthly": 199,
+      "stripe_price_id": "price_REPLACE_agency",
+      "tagline": "All ten agents, full power.",
+      "includes_agents": "all",
+      "limits": "Highest caps; unlimited workspaces; priority support.",
+      "best_for": "Agencies and teams running client work"
+    }
+  ],
+  "notes": "Agent-to-tier mapping mirrors each agent's `tier` field in agents/*/agent.json. Replace the stripe_price_id values with the Price IDs from your Stripe dashboard."
+}

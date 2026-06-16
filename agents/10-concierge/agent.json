@@ -1,0 +1,30 @@
+{
+  "id": "concierge",
+  "name": "Concierge",
+  "emoji": "\ud83d\udece\ufe0f",
+  "version": "0.1.0",
+  "tagline": "Never miss a customer message again.",
+  "description": "Concierge triages your inbox, drafts replies to common questions, books meetings, and makes sure nothing falls through the cracks. It works from drafts so you stay in control.",
+  "tier": "Starter",
+  "price": "$29/mo",
+  "model": "claude-opus-4-8",
+  "composio_toolkits": [
+    "gmail",
+    "slack",
+    "googlecalendar"
+  ],
+  "capabilities": [
+    "Triage and label incoming email by urgency and topic",
+    "Draft replies to common questions in your voice",
+    "Book meetings and send calendar invites on approval",
+    "Summarize what needs your attention each day",
+    "Escalate anything sensitive to you instead of guessing"
+  ],
+  "example_prompts": [
+    "Go through my inbox and draft replies to anything I can answer quickly.",
+    "Summarize the emails I got overnight and tell me what's urgent.",
+    "Book a 30-minute call with this client next week and send the invite."
+  ],
+  "system_prompt_file": "system_prompt.md",
+  "entrypoint": "../../runtime/decagent.py"
+}

@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decagent — 10 AI agents you hire in plain English</title>
+<meta name="description" content="Ten powerful AI agents that build apps, edit sites, pilot GitHub, scrape the web, find leads, write emails, and create content. Talk to them in plain English.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0A0A0F; --panel:#13131C; --panel2:#1A1A26; --line:#262635;
+    --text:#ECECF3; --muted:#9C9CB4; --accent:#6E56F8; --accent2:#36E0A6;
+    --grad:linear-gradient(120deg,#6E56F8 0%,#36E0A6 100%);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{background:var(--ink);color:var(--text);font-family:'Inter',sans-serif;line-height:1.6;-webkit-font-smoothing:antialiased;overflow-x:hidden}
+  h1,h2,h3,.display{font-family:'Space Grotesk',sans-serif;letter-spacing:-.02em;line-height:1.05}
+  a{color:inherit;text-decoration:none}
+  .wrap{max-width:1140px;margin:0 auto;padding:0 24px}
+  .accent-text{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+
+  /* nav */
+  nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(12px);background:rgba(10,10,15,.72);border-bottom:1px solid var(--line)}
+  .nav-in{display:flex;align-items:center;justify-content:space-between;height:64px}
+  .logo{display:flex;align-items:center;gap:10px;font-family:'Space Grotesk';font-weight:700;font-size:19px}
+  .logo .dot{width:26px;height:26px;border-radius:8px;background:var(--grad);display:grid;place-items:center;font-size:14px}
+  .nav-links{display:flex;gap:28px;align-items:center;font-size:14px;color:var(--muted)}
+  .nav-links a:hover{color:var(--text)}
+  .btn{display:inline-block;padding:11px 20px;border-radius:10px;font-weight:600;font-size:14px;font-family:'Space Grotesk';transition:.18s;cursor:pointer;border:none}
+  .btn-primary{background:var(--grad);color:#08080c}
+  .btn-primary:hover{transform:translateY(-2px);box-shadow:0 10px 30px -8px rgba(110,86,248,.6)}
+  .btn-ghost{border:1px solid var(--line);color:var(--text);background:transparent}
+  .btn-ghost:hover{border-color:var(--accent);color:#fff}
+  @media(max-width:760px){.nav-links a:not(.btn){display:none}}
+
+  /* hero */
+  .hero{position:relative;padding:96px 0 70px;text-align:center}
+  .hero::before{content:"";position:absolute;top:-120px;left:50%;transform:translateX(-50%);width:760px;height:520px;background:radial-gradient(ellipse at center,rgba(110,86,248,.28),transparent 62%);filter:blur(20px);z-index:-1}
+  .eyebrow{display:inline-flex;align-items:center;gap:8px;padding:6px 14px;border:1px solid var(--line);border-radius:30px;font-size:13px;color:var(--muted);margin-bottom:26px}
+  .eyebrow b{color:var(--accent2);font-weight:600}
+  .hero h1{font-size:clamp(38px,6.4vw,72px);font-weight:700;max-width:14ch;margin:0 auto 22px}
+  .hero p.sub{font-size:clamp(16px,2vw,20px);color:var(--muted);max-width:60ch;margin:0 auto 34px}
+  .hero-cta{display:flex;gap:14px;justify-content:center;flex-wrap:wrap}
+  .btn-lg{padding:15px 28px;font-size:16px;border-radius:12px}
+  .trust{margin-top:30px;font-size:13px;color:var(--muted)}
+  .trust b{color:var(--text)}
+
+  section{padding:74px 0}
+  .sec-head{text-align:center;max-width:62ch;margin:0 auto 48px}
+  .sec-head .kicker{font-size:13px;letter-spacing:.16em;text-transform:uppercase;color:var(--accent2);font-weight:600;font-family:'Space Grotesk'}
+  .sec-head h2{font-size:clamp(28px,4vw,44px);font-weight:700;margin:12px 0 14px}
+  .sec-head p{color:var(--muted);font-size:17px}
+
+  /* agent grid */
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(252px,1fr));gap:18px}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:24px;transition:.2s;position:relative;overflow:hidden}
+  .card:hover{transform:translateY(-4px);border-color:#3a3a52;background:var(--panel2)}
+  .card .ico{font-size:30px;margin-bottom:14px;display:block}
+  .card h3{font-size:19px;font-weight:600;margin-bottom:7px}
+  .card p{color:var(--muted);font-size:14.5px;line-height:1.5}
+  .tier{position:absolute;top:18px;right:18px;font-size:11px;font-weight:600;font-family:'Space Grotesk';letter-spacing:.04em;padding:4px 9px;border-radius:20px;border:1px solid var(--line);color:var(--muted)}
+  .tier.starter{color:var(--accent2);border-color:rgba(54,224,166,.4)}
+  .tier.pro{color:#b6a7ff;border-color:rgba(110,86,248,.45)}
+  .tier.agency{color:#ffd479;border-color:rgba(255,212,121,.4)}
+
+  /* how */
+  .steps{display:grid;grid-template-columns:repeat(3,1fr);gap:22px}
+  .step{background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:30px 26px}
+  .step .n{font-family:'Space Grotesk';font-weight:700;font-size:15px;width:34px;height:34px;border-radius:10px;background:var(--grad);color:#08080c;display:grid;place-items:center;margin-bottom:16px}
+  .step h3{font-size:18px;margin-bottom:8px}
+  .step p{color:var(--muted);font-size:14.5px}
+  @media(max-width:760px){.steps{grid-template-columns:1fr}}
+
+  /* pricing */
+  .prices{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;align-items:stretch}
+  .price{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:28px 24px;display:flex;flex-direction:column}
+  .price.feat{border-color:var(--accent);background:linear-gradient(180deg,rgba(110,86,248,.10),var(--panel))}
+  .price .pop{font-size:11px;font-weight:700;font-family:'Space Grotesk';letter-spacing:.08em;color:var(--accent2);text-transform:uppercase;margin-bottom:8px;height:14px}
+  .price h3{font-size:21px;font-weight:600;margin-bottom:4px}
+  .price .amt{font-family:'Space Grotesk';font-size:40px;font-weight:700;margin:10px 0 2px}
+  .price .amt span{font-size:15px;color:var(--muted);font-weight:500}
+  .price .desc{color:var(--muted);font-size:13.5px;min-height:38px;margin-bottom:16px}
+  .price ul{list-style:none;margin:0 0 22px;flex:1}
+  .price li{font-size:14px;padding:7px 0 7px 24px;position:relative;color:#d4d4e2;border-top:1px solid rgba(255,255,255,.04)}
+  .price li::before{content:"✓";position:absolute;left:0;color:var(--accent2);font-weight:700}
+  .price .btn{width:100%;text-align:center}
+  @media(max-width:980px){.prices{grid-template-columns:repeat(2,1fr)}}
+  @media(max-width:520px){.prices{grid-template-columns:1fr}}
+
+  /* cta band */
+  .band{background:linear-gradient(120deg,rgba(110,86,248,.16),rgba(54,224,166,.10));border:1px solid var(--line);border-radius:24px;padding:54px 40px;text-align:center;margin:0 24px}
+  .band h2{font-size:clamp(26px,4vw,40px);margin-bottom:14px}
+  .band p{color:var(--muted);max-width:50ch;margin:0 auto 26px;font-size:17px}
+
+  footer{border-top:1px solid var(--line);padding:40px 0;color:var(--muted);font-size:13.5px}
+  .foot-in{display:flex;justify-content:space-between;flex-wrap:wrap;gap:16px;align-items:center}
+  .foot-links{display:flex;gap:22px}
+  .foot-links a:hover{color:var(--text)}
+</style>
+</head>
+<body>
+
+<nav>
+  <div class="wrap nav-in">
+    <div class="logo"><span class="dot">◐</span> Decagent</div>
+    <div class="nav-links">
+      <a href="#agents">Agents</a>
+      <a href="#how">How it works</a>
+      <a href="#pricing">Pricing</a>
+      <a href="https://github.com/fumbasiyabongajason-ux/Decagents" target="_blank" rel="noopener noreferrer">GitHub</a>
+      <a href="#pricing" class="btn btn-primary">Start free</a>
+    </div>
+  </div>
+</nav>
+
+<header class="hero">
+  <div class="wrap">
+    <span class="eyebrow">⚡ Ten agents. One subscription. <b>No prompt-engineering.</b></span>
+    <h1>AI agents you hire in <span class="accent-text">plain English</span></h1>
+    <p class="sub">Decagent is a team of ten AI specialists that do real work — build apps, redesign websites, pilot your GitHub, scrape the web, find leads, write emails, and create content. You just tell them what you want.</p>
+    <div class="hero-cta">
+      <a href="#pricing" class="btn btn-primary btn-lg">Start free →</a>
+      <a href="#agents" class="btn btn-ghost btn-lg">Meet the ten</a>
+    </div>
+    <p class="trust">Self-host free from GitHub · or let us run it · <b>powered by Composio</b></p>
+  </div>
+</header>
+
+<section id="agents">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">The Lineup</div>
+      <h2>Ten agents. Each great at one job.</h2>
+      <p>Hire one or the whole team. Every agent speaks plain English and takes real action through your connected tools.</p>
+    </div>
+    <div class="grid">
+      <div class="card"><span class="tier pro">Pro</span><span class="ico">🛠️</span><h3>Builder</h3><p>Describe an app in plain English. Get working, runnable code — pushed to GitHub.</p></div>
+      <div class="card"><span class="tier pro">Pro</span><span class="ico">🎨</span><h3>Webwright</h3><p>Edit, redesign, and build websites. Just say what you want changed.</p></div>
+      <div class="card"><span class="tier agency">Agency</span><span class="ico">🐙</span><h3>Octopilot</h3><p>Your GitHub co-pilot — repos, branches, pull requests, and reviews.</p></div>
+      <div class="card"><span class="tier pro">Pro</span><span class="ico">🌾</span><h3>Harvest</h3><p>Turn any website into clean, structured data — a spreadsheet, not a mess.</p></div>
+      <div class="card"><span class="tier agency">Agency</span><span class="ico">🔍</span><h3>Prospector</h3><p>Find your next 100 customers, enriched with verified contact details.</p></div>
+      <div class="card"><span class="tier starter">Starter</span><span class="ico">✉️</span><h3>Outreach</h3><p>Cold emails and follow-ups that actually get replies. Drafts only — you approve.</p></div>
+      <div class="card"><span class="tier starter">Starter</span><span class="ico">✍️</span><h3>Scribe</h3><p>Content on demand — blog posts, social, and SEO copy in your voice.</p></div>
+      <div class="card"><span class="tier starter">Starter</span><span class="ico">🧭</span><h3>Scout</h3><p>Deep research and competitor analysis, summarized for decisions, fully cited.</p></div>
+      <div class="card"><span class="tier agency">Agency</span><span class="ico">📡</span><h3>Broadcast</h3><p>Plan, write, and post across all your social channels from one place.</p></div>
+      <div class="card"><span class="tier starter">Starter</span><span class="ico">🛎️</span><h3>Concierge</h3><p>Inbox triage, drafted replies, and meeting booking. Never miss a message.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="how" style="background:var(--panel);border-top:1px solid var(--line);border-bottom:1px solid var(--line)">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">How it works</div>
+      <h2>From "I wish I had someone for that" to done.</h2>
+    </div>
+    <div class="steps">
+      <div class="step"><div class="n">1</div><h3>Pick your agents</h3><p>Choose a plan and the agents you need. Connect your tools — GitHub, Gmail, your site — in a couple of clicks.</p></div>
+      <div class="step"><div class="n">2</div><h3>Ask in plain English</h3><p>Tell the agent what you want, like you'd brief a smart assistant. No commands, no prompt tricks, no code.</p></div>
+      <div class="step"><div class="n">3</div><h3>Review &amp; approve</h3><p>The agent does the work and shows you the result. Sensitive actions wait for your yes. You stay in control.</p></div>
+    </div>
+  </div>
+</section>
+
+<section id="pricing">
+  <div class="wrap">
+    <div class="sec-head">
+      <div class="kicker">Pricing</div>
+      <h2>Start free. Upgrade when it's paying for itself.</h2>
+      <p>Self-host any agent free from GitHub. Or let us host them so you never touch code or API keys.</p>
+    </div>
+    <div class="prices">
+      <div class="price">
+        <div class="pop"></div>
+        <h3>Community</h3>
+        <div class="amt">$0</div>
+        <div class="desc">Self-host with your own keys.</div>
+        <ul><li>All 10 agents</li><li>Full source on GitHub</li><li>Bring your own API keys</li><li>Community support</li></ul>
+        <a href="https://github.com/fumbasiyabongajason-ux/Decagents" target="_blank" rel="noopener noreferrer" class="btn btn-ghost">Get it on GitHub</a>
+      </div>
+      <div class="price">
+        <div class="pop"></div>
+        <h3>Starter</h3>
+        <div class="amt">$29<span>/mo</span></div>
+        <div class="desc">The solo-creator toolkit.</div>
+        <ul><li>Outreach, Scribe</li><li>Scout, Concierge</li><li>1 workspace</li><li>We host it — no keys needed</li></ul>
+        <a href="#" data-plan="starter" class="btn btn-ghost">Start free trial</a>
+      </div>
+      <div class="price feat">
+        <div class="pop">Most popular</div>
+        <h3>Pro</h3>
+        <div class="amt">$79<span>/mo</span></div>
+        <div class="desc">Build and grow.</div>
+        <ul><li>Everything in Starter</li><li>+ Builder, Webwright</li><li>+ Harvest</li><li>3 workspaces</li></ul>
+        <a href="#" data-plan="pro" class="btn btn-primary">Start free trial</a>
+      </div>
+      <div class="price">
+        <div class="pop"></div>
+        <h3>Agency</h3>
+        <div class="amt">$199<span>/mo</span></div>
+        <div class="desc">All ten, full power.</div>
+        <ul><li>All 10 agents</li><li>+ Octopilot, Prospector</li><li>+ Broadcast</li><li>Unlimited workspaces · priority support</li></ul>
+        <a href="#" data-plan="agency" class="btn btn-ghost">Talk to us</a>
+      </div>
+    </div>
+    <!-- Wire each data-plan button to a Stripe Checkout Session. See billing/README.md -->
+  </div>
+</section>
+
+<section>
+  <div class="band wrap" style="max-width:1140px">
+    <h2>Ten hires for less than one freelancer.</h2>
+    <p>Spin up your AI team today. Start free on GitHub, or go live in minutes on a hosted plan.</p>
+    <a href="#pricing" class="btn btn-primary btn-lg">Start free →</a>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot-in">
+    <div>© 2026 Decagent · built by Siyabonga Fumba</div>
+    <div class="foot-links">
+      <a href="#agents">Agents</a>
+      <a href="#pricing">Pricing</a>
+      <a href="https://github.com/fumbasiyabongajason-ux/Decagents" target="_blank" rel="noopener noreferrer">GitHub</a>
+    </div>
+  </div>
+</footer>
+
+</body>
+</html>

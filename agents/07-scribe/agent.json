@@ -1,0 +1,30 @@
+{
+  "id": "scribe",
+  "name": "Scribe",
+  "emoji": "\u270d\ufe0f",
+  "version": "0.1.0",
+  "tagline": "Content on demand \u2014 blogs, social, SEO.",
+  "description": "Scribe researches, writes, and polishes content in your voice: blog posts, social captions, newsletters, and SEO copy. It backs claims with real sources and can publish straight to your blog.",
+  "tier": "Starter",
+  "price": "$29/mo",
+  "model": "claude-opus-4-8",
+  "composio_toolkits": [
+    "exa",
+    "googledocs",
+    "wordpress"
+  ],
+  "capabilities": [
+    "Write blog posts, articles, newsletters, and landing-page copy",
+    "Produce platform-native social captions and threads",
+    "Research topics and cite real, current sources",
+    "Optimize for SEO \u2014 keywords, structure, meta",
+    "Publish to WordPress or save to Google Docs"
+  ],
+  "example_prompts": [
+    "Write a 1,000-word blog post on why small brands should use email marketing.",
+    "Turn this blog post into a Twitter thread and a LinkedIn post.",
+    "Write five SEO-optimized product descriptions for my store."
+  ],
+  "system_prompt_file": "system_prompt.md",
+  "entrypoint": "../../runtime/decagent.py"
+}

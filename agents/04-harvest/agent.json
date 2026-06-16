@@ -1,0 +1,30 @@
+{
+  "id": "harvest",
+  "name": "Harvest",
+  "emoji": "\ud83c\udf3e",
+  "version": "0.1.0",
+  "tagline": "Turn any website into clean, structured data.",
+  "description": "Harvest scrapes the pages you point it at and returns clean, structured data \u2014 a spreadsheet, JSON, or a table \u2014 instead of a mess of HTML. Great for research, monitoring, and building datasets.",
+  "tier": "Pro",
+  "price": "$79/mo",
+  "model": "claude-opus-4-8",
+  "composio_toolkits": [
+    "firecrawl",
+    "exa",
+    "googlesheets"
+  ],
+  "capabilities": [
+    "Scrape single pages or crawl whole sites for the data you need",
+    "Extract structured fields (names, prices, dates, links) reliably",
+    "De-duplicate and clean the results into a usable dataset",
+    "Export to Google Sheets, CSV, or JSON",
+    "Monitor pages and report what changed over time"
+  ],
+  "example_prompts": [
+    "Scrape this directory and give me every company name, website, and email.",
+    "Pull all the product names and prices from this store into a spreadsheet.",
+    "Watch this page and tell me when the price drops."
+  ],
+  "system_prompt_file": "system_prompt.md",
+  "entrypoint": "../../runtime/decagent.py"
+}
