@@ -86,9 +86,13 @@ def get_tools(toolkits: list[str]):
 # --------------------------------------------------------------------------- #
 # Run loop
 # --------------------------------------------------------------------------- #
-def run(agent_id: str, message: str) -> str:
+def run(agent_id: str, message: str, history: list | None = None,
+        verbose: bool = True) -> str:
+    """Run one agent on a message. `history` is an optional list of prior
+    {role, content} turns (used by the chat Console). Returns the reply text."""
     agent = load_agent(agent_id)
-    print(f"\n{agent['emoji']}  {agent['name']} — {agent['tagline']}\n" + "-" * 60)
+    if verbose:
+        print(f"\n{agent['emoji']}  {agent['name']} — {agent['tagline']}\n" + "-" * 60)
 
     try:
         from anthropic import Anthropic
@@ -98,7 +102,11 @@ def run(agent_id: str, message: str) -> str:
     client = Anthropic()  # reads ANTHROPIC_API_KEY
     tools, toolset = get_tools(agent["composio_toolkits"])
 
-    messages = [{"role": "user", "content": message}]
+    messages = []
+    for h in (history or []):
+        if h.get("role") in ("user", "assistant") and h.get("content"):
+            messages.append({"role": h["role"], "content": h["content"]})
+    messages.append({"role": "user", "content": message})
     final_text = ""
 
     for _ in range(MAX_TURNS):
@@ -121,8 +129,34 @@ def run(agent_id: str, message: str) -> str:
             continue
         break
 
-    print(final_text.strip() or "(no response)")
+    if verbose:
+        print(final_text.strip() or "(no response)")
     return final_text.strip()
+
+
+def route(message: str) -> str:
+    """Pick the best agent id for a message (the Console's 'Auto' mode)."""
+    agents = [a for a in list_agents() if a["id"] != "auto"]
+    ids = [a["id"] for a in agents]
+    try:
+        from anthropic import Anthropic
+    except ImportError:
+        return ids[0]
+    client = Anthropic()
+    menu = "\n".join(f"- {a['id']}: {a['tagline']}" for a in agents)
+    sys = ("You are a router for a team of AI agents. Given a user request, "
+           "choose the single best agent to handle it. Reply with ONLY the "
+           "agent id (one word), nothing else.")
+    resp = client.messages.create(
+        model=MODEL, max_tokens=12, system=sys,
+        messages=[{"role": "user",
+                   "content": f"Agents:\n{menu}\n\nRequest: {message}\n\nBest agent id:"}],
+    )
+    txt = "".join(getattr(b, "text", "") for b in resp.content).strip().lower()
+    for i in ids:
+        if i in txt:
+            return i
+    return ids[0]
 
 
 # --------------------------------------------------------------------------- #

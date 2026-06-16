@@ -45,6 +45,16 @@ python runtime/decagent.py --agent scout -m "Research the home-fitness market in
 The agents use **[Composio](https://composio.dev)** for their tools (GitHub, Gmail,
 scraping, leads, social…). One Composio account powers all the real-world actions.
 
+## 💬 Use all 10 from one chat — the Console
+The easiest way to use your team: a private, ChatGPT-style web app where every agent
+lives in **one thread**.
+```bash
+uvicorn runtime.server:app --port 8000
+# then open http://localhost:8000
+```
+Pick any agent from the sidebar, or leave it on **Auto** and your message is routed to
+the right specialist automatically. (UI lives in `app/index.html`.)
+
 ## Turn it into a business
 - **Website** (`website/`) — a ready landing + pricing page for your subscription product.
 - **API** (`runtime/server.py`) — serve the agents over HTTP so the website can call them.

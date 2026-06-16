@@ -5,14 +5,19 @@ Decagent API server
 Exposes the ten agents over HTTP so your subscription website can call them.
 This is the backend the website talks to.
 
-Run:
+Run the Console:
     pip install -r runtime/requirements.txt
+    cp runtime/.env.example runtime/.env     # add your keys
     uvicorn runtime.server:app --reload --port 8000
+    # then open http://localhost:8000  ->  chat with all 10 agents
 
 Endpoints:
-    GET  /agents                 -> list all agents (id, name, tier, tagline)
-    GET  /agents/{id}            -> one agent's full manifest
-    POST /run  {agent, message}  -> run an agent, return its response
+    GET  /                          -> the Console chat UI (app/index.html)
+    POST /chat {agent, message, history}
+                                    -> chat; agent="auto" routes automatically
+    GET  /agents                    -> list all agents
+    GET  /agents/{id}               -> one agent's full manifest
+    POST /run  {agent, message}     -> run an agent once (no history)
 
 NOTE: This is the open scaffold. Before going live you must add (see billing/):
     - authentication (who is calling)
@@ -22,13 +27,16 @@ The middleware stub `require_active_subscription` shows where that goes.
 """
 from __future__ import annotations
 import json, pathlib
+from typing import Optional
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel
 
 from . import decagent  # reuse the runtime
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
+APP_HTML = ROOT / "app" / "index.html"  # the Console chat UI
 app = FastAPI(title="Decagent API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
@@ -40,7 +48,13 @@ class RunRequest(BaseModel):
     message: str
 
 
-def require_active_subscription(authorization: str | None, agent_id: str) -> str:
+class ChatRequest(BaseModel):
+    agent: str = "auto"          # an agent id, or "auto" to route automatically
+    message: str
+    history: list[dict] = []     # prior [{role, content}] turns from the Console
+
+
+def require_active_subscription(authorization: Optional[str], agent_id: str) -> str:
     """STUB — replace with real auth + Stripe subscription check.
 
     1. Resolve the API key / session token in `authorization` to a user.
@@ -69,7 +83,7 @@ def agent_detail(agent_id: str):
 
 
 @app.post("/run")
-def run(req: RunRequest, authorization: str | None = Header(default=None)):
+def run(req: RunRequest, authorization: Optional[str] = Header(default=None)):
     user = require_active_subscription(authorization, req.agent)
     try:
         text = decagent.run(req.agent, req.message)
@@ -78,6 +92,30 @@ def run(req: RunRequest, authorization: str | None = Header(default=None)):
     return {"agent": req.agent, "user": user, "response": text}
 
 
-@app.get("/")
-def root():
-    return {"product": "Decagent", "agents": "/agents", "run": "POST /run"}
+@app.get("/", response_class=HTMLResponse)
+def home():
+    """Serve the Decagent Console (the ChatGPT-style chat UI)."""
+    if APP_HTML.exists():
+        return FileResponse(str(APP_HTML))
+    return HTMLResponse("<h1>Decagent Console</h1><p>UI file <code>app/index.html</code> not found.</p>")
+
+
+@app.get("/api")
+def api_info():
+    return {"product": "Decagent Console", "console": "/", "agents": "/agents",
+            "chat": "POST /chat", "run": "POST /run"}
+
+
+@app.post("/chat")
+def chat(req: ChatRequest):
+    """Console chat endpoint. agent='auto' routes to the best specialist,
+    then runs it with the conversation history."""
+    agent_id = req.agent or "auto"
+    try:
+        if agent_id == "auto":
+            agent_id = decagent.route(req.message)
+        text = decagent.run(agent_id, req.message,
+                             history=req.history[-10:], verbose=False)
+        return {"agent": agent_id, "response": text}
+    except (Exception, SystemExit) as e:  # missing keys/deps, bad id, API errors — report cleanly
+        return {"agent": agent_id, "response": None, "error": str(e) or "agent runtime error"}

@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Decagent Console — your AI team in one chat</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#0A0A0F;--panel:#13131C;--panel2:#1A1A26;--line:#262635;
+    --text:#ECECF3;--muted:#9C9CB4;--accent:#6E56F8;--accent2:#36E0A6;
+    --user:#23232f;--grad:linear-gradient(120deg,#6E56F8,#36E0A6);
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{background:var(--ink);color:var(--text);font-family:'Inter',sans-serif;height:100vh;overflow:hidden;-webkit-font-smoothing:antialiased}
+  .app{display:flex;height:100vh}
+
+  /* sidebar */
+  .side{width:288px;background:var(--panel);border-right:1px solid var(--line);display:flex;flex-direction:column;flex-shrink:0}
+  .brand{display:flex;align-items:center;gap:10px;padding:18px 18px 14px;font-family:'Space Grotesk';font-weight:700;font-size:18px}
+  .brand .dot{width:26px;height:26px;border-radius:8px;background:var(--grad);display:grid;place-items:center;font-size:14px;color:#08080c}
+  .newchat{margin:0 14px 8px;padding:10px;border:1px solid var(--line);border-radius:10px;color:var(--muted);font-size:13.5px;cursor:pointer;display:flex;align-items:center;gap:8px;transition:.15s;background:transparent}
+  .newchat:hover{border-color:var(--accent);color:#fff}
+  .side .label{padding:14px 18px 7px;font-size:11px;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);font-family:'Space Grotesk';font-weight:600}
+  .agents{overflow-y:auto;flex:1;padding:0 10px 10px}
+  .agent{display:flex;gap:11px;align-items:flex-start;padding:10px 10px;border-radius:11px;cursor:pointer;transition:.13s;border:1px solid transparent}
+  .agent:hover{background:var(--panel2)}
+  .agent.active{background:var(--panel2);border-color:#33334a}
+  .agent .em{font-size:19px;line-height:1.3;width:22px;text-align:center;flex-shrink:0}
+  .agent .nm{font-weight:600;font-size:14px}
+  .agent .tg{color:var(--muted);font-size:12px;line-height:1.35;margin-top:1px}
+  .agent.auto .nm{background:var(--grad);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent}
+  .side .foot{padding:12px 18px;border-top:1px solid var(--line);font-size:12px;color:var(--muted)}
+  .side .foot a{color:var(--accent2);text-decoration:none}
+
+  /* main */
+  .main{flex:1;display:flex;flex-direction:column;min-width:0}
+  .topbar{height:60px;border-bottom:1px solid var(--line);display:flex;align-items:center;gap:12px;padding:0 24px;flex-shrink:0;background:rgba(10,10,15,.6);backdrop-filter:blur(8px)}
+  .topbar .em{font-size:22px}
+  .topbar .ti{font-family:'Space Grotesk';font-weight:600;font-size:16px}
+  .topbar .tg{color:var(--muted);font-size:13px}
+  .menu-btn{display:none;background:none;border:1px solid var(--line);color:var(--text);border-radius:8px;padding:6px 10px;cursor:pointer;font-size:16px}
+
+  .thread{flex:1;overflow-y:auto;padding:28px 0}
+  .row{max-width:760px;margin:0 auto;padding:0 24px 22px;display:flex;gap:14px}
+  .row .av{width:30px;height:30px;border-radius:8px;flex-shrink:0;display:grid;place-items:center;font-size:15px}
+  .row.user .av{background:var(--user)}
+  .row.bot .av{background:var(--grad);color:#08080c}
+  .bubble{padding-top:3px;line-height:1.62;font-size:15px;min-width:0;word-wrap:break-word}
+  .bubble .who{font-family:'Space Grotesk';font-weight:600;font-size:13px;color:var(--muted);margin-bottom:3px}
+  .row.user .bubble .who{color:var(--accent2)}
+  .bubble p{margin:0 0 10px}.bubble p:last-child{margin-bottom:0}
+  .bubble code{background:#000;border:1px solid var(--line);border-radius:5px;padding:1px 5px;font-size:13px;font-family:ui-monospace,Menlo,monospace}
+  .bubble pre{background:#000;border:1px solid var(--line);border-radius:10px;padding:13px 15px;overflow-x:auto;margin:0 0 10px}
+  .bubble pre code{background:none;border:none;padding:0}
+  .bubble ul,.bubble ol{margin:0 0 10px;padding-left:22px}
+  .bubble li{margin:3px 0}
+  .bubble a{color:var(--accent2)}
+  .bubble h1,.bubble h2,.bubble h3{font-family:'Space Grotesk';margin:4px 0 8px;line-height:1.25}
+  .bubble h3{font-size:16px}
+
+  /* empty state */
+  .empty{max-width:720px;margin:0 auto;padding:48px 24px;text-align:center}
+  .empty .big{font-size:30px;width:64px;height:64px;border-radius:16px;background:var(--grad);display:grid;place-items:center;margin:0 auto 20px;color:#08080c}
+  .empty h2{font-family:'Space Grotesk';font-size:26px;font-weight:700;margin-bottom:8px}
+  .empty p{color:var(--muted);margin-bottom:26px;font-size:15.5px}
+  .chips{display:flex;flex-wrap:wrap;gap:10px;justify-content:center}
+  .chip{border:1px solid var(--line);background:var(--panel);border-radius:11px;padding:11px 15px;font-size:13.5px;color:#d4d4e2;cursor:pointer;transition:.14s;text-align:left;max-width:330px}
+  .chip:hover{border-color:var(--accent);transform:translateY(-2px)}
+
+  /* typing */
+  .typing{display:flex;gap:5px;padding-top:9px}
+  .typing span{width:7px;height:7px;border-radius:50%;background:var(--muted);animation:bl 1.3s infinite}
+  .typing span:nth-child(2){animation-delay:.2s}.typing span:nth-child(3){animation-delay:.4s}
+  @keyframes bl{0%,60%,100%{opacity:.25}30%{opacity:1}}
+
+  /* composer */
+  .composer{border-top:1px solid var(--line);padding:16px 24px 20px;flex-shrink:0}
+  .cbox{max-width:760px;margin:0 auto;background:var(--panel);border:1px solid var(--line);border-radius:16px;padding:8px 8px 8px 16px;display:flex;align-items:flex-end;gap:10px;transition:.15s}
+  .cbox:focus-within{border-color:var(--accent)}
+  .cbox textarea{flex:1;background:none;border:none;color:var(--text);font-family:inherit;font-size:15px;resize:none;outline:none;max-height:180px;line-height:1.5;padding:8px 0}
+  .send{width:38px;height:38px;border-radius:10px;border:none;background:var(--grad);color:#08080c;font-size:17px;cursor:pointer;flex-shrink:0;display:grid;place-items:center;transition:.15s}
+  .send:disabled{opacity:.4;cursor:not-allowed}
+  .hint{max-width:760px;margin:8px auto 0;text-align:center;font-size:11.5px;color:var(--muted)}
+
+  @media(max-width:760px){
+    .side{position:fixed;left:0;top:0;bottom:0;z-index:40;transform:translateX(-100%);transition:.22s}
+    .side.open{transform:none;box-shadow:0 0 60px rgba(0,0,0,.6)}
+    .menu-btn{display:block}
+    .scrim{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:30}
+    .scrim.show{display:block}
+  }
+</style>
+</head>
+<body>
+<div class="app">
+  <aside class="side" id="side">
+    <div class="brand"><span class="dot">◐</span> Decagent Console</div>
+    <button class="newchat" onclick="newChat()">✚&nbsp; New chat</button>
+    <div class="label">Your agents</div>
+    <div class="agents" id="agentList"></div>
+    <div class="foot">One thread · all 10 agents · <a href="https://github.com/fumbasiyabongajason-ux/Decagents" target="_blank" rel="noopener noreferrer">repo</a></div>
+  </aside>
+  <div class="scrim" id="scrim" onclick="toggleSide()"></div>
+
+  <main class="main">
+    <div class="topbar">
+      <button class="menu-btn" onclick="toggleSide()">☰</button>
+      <span class="em" id="barEm">✨</span>
+      <div>
+        <div class="ti" id="barName">Auto</div>
+        <div class="tg" id="barTag">Describe anything — I'll route it to the right specialist.</div>
+      </div>
+    </div>
+    <div class="thread" id="thread"></div>
+    <div class="composer">
+      <div class="cbox">
+        <textarea id="input" rows="1" placeholder="Message your agents…" oninput="autogrow(this)" onkeydown="onKey(event)"></textarea>
+        <button class="send" id="send" onclick="sendMsg()">➤</button>
+      </div>
+      <div class="hint" id="hint">Enter to send · Shift+Enter for new line</div>
+    </div>
+  </main>
+</div>
+
+<script>
+const AGENTS = [
+  {id:"auto",em:"✨",nm:"Auto",tg:"Picks the best agent for each message",ex:["Find 20 leads in fintech and draft an intro email to them","Research my top 3 competitors and write a blog post about what sets me apart"]},
+  {id:"builder",em:"🛠️",nm:"Builder",tg:"Describe an app → working code",ex:["Build a to-do app with a Postgres backend and a web UI","Write a Python script that emails me when a file lands in a folder"]},
+  {id:"webwright",em:"🎨",nm:"Webwright",tg:"Edit, redesign & build websites",ex:["Redesign my homepage to feel more premium and add a pricing section","Build a landing page for my product with an email signup form"]},
+  {id:"octopilot",em:"🐙",nm:"Octopilot",tg:"Your GitHub co-pilot",ex:["Open a PR from my feature branch into main and summarize the changes","Review my open pull requests and tell me which are safe to merge"]},
+  {id:"harvest",em:"🌾",nm:"Harvest",tg:"Turn any website into clean data",ex:["Scrape this directory into a spreadsheet of names, sites and emails","Pull all product names and prices from this store"]},
+  {id:"prospector",em:"🔍",nm:"Prospector",tg:"Find your next 100 customers",ex:["Find 50 marketing directors at mid-size SaaS companies in the US","Build a list of independent coffee roasters in Europe with emails"]},
+  {id:"outreach",em:"✉️",nm:"Outreach",tg:"Emails that get replies",ex:["Write a 3-email cold sequence for my web design service to restaurants","Draft a friendly follow-up to leads who haven't replied in a week"]},
+  {id:"scribe",em:"✍️",nm:"Scribe",tg:"Content on demand",ex:["Write a 1,000-word blog post on why small brands should use email","Turn this blog post into a Twitter thread and a LinkedIn post"]},
+  {id:"scout",em:"🧭",nm:"Scout",tg:"Deep research, summarized",ex:["Give me a competitive analysis of the top 5 project management tools","Research the market for eco-friendly packaging in 2026"]},
+  {id:"broadcast",em:"📡",nm:"Broadcast",tg:"Run all your social channels",ex:["Plan a week of posts promoting my product across X and LinkedIn","Turn this announcement into a native post for each of my channels"]},
+  {id:"concierge",em:"🛎️",nm:"Concierge",tg:"Never miss a customer message",ex:["Summarize the emails I got overnight and tell me what's urgent","Draft replies to anything in my inbox I can answer quickly"]},
+];
+const byId = Object.fromEntries(AGENTS.map(a=>[a.id,a]));
+let current = "auto";
+let history = [];   // [{role, content}]
+let busy = false;
+
+// ---- sidebar ----
+function renderAgents(){
+  agentList.innerHTML = AGENTS.map(a=>`
+    <div class="agent ${a.id==='auto'?'auto':''} ${a.id===current?'active':''}" onclick="pick('${a.id}')">
+      <div class="em">${a.em}</div>
+      <div><div class="nm">${a.nm}</div><div class="tg">${a.tg}</div></div>
+    </div>`).join("");
+}
+function pick(id){
+  current = id; const a = byId[id];
+  barEm.textContent = a.em; barName.textContent = a.nm; barTag.textContent = a.tg;
+  renderAgents();
+  if(window.innerWidth<=760) closeSide();
+  if(history.length===0) renderEmpty();
+}
+function newChat(){ history=[]; renderEmpty(); }
+
+// ---- empty state ----
+function renderEmpty(){
+  const a = byId[current];
+  thread.innerHTML = `
+    <div class="empty">
+      <div class="big">${a.em}</div>
+      <h2>${a.id==='auto'?'Your AI team, one chat':a.nm}</h2>
+      <p>${a.id==='auto'?'Tell me what you need. I\\'ll send it to the right specialist — or pick one from the left.':a.tg+'. Ask away, or try:'}</p>
+      <div class="chips">${a.ex.map(e=>`<div class="chip" onclick="useChip(this)">${e}</div>`).join("")}</div>
+    </div>`;
+}
+function useChip(el){ input.value = el.textContent; autogrow(input); input.focus(); }
+
+// ---- markdown-lite (safe) ----
+function esc(s){return s.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");}
+function md(t){
+  t = esc(t);
+  t = t.replace(/```([\s\S]*?)```/g,(m,c)=>`<pre><code>${c.replace(/^\n/,"")}</code></pre>`);
+  t = t.replace(/`([^`]+)`/g,"<code>$1</code>");
+  t = t.replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>");
+  t = t.replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  t = t.replace(/^### (.*)$/gm,"<h3>$1</h3>");
+  t = t.replace(/^(?:- |\* )(.*)$/gm,"<li>$1</li>");
+  t = t.replace(/^\d+\. (.*)$/gm,"<li>$1</li>");
+  t = t.replace(/(<li>[\s\S]*?<\/li>)/g,m=>`<ul>${m}</ul>`).replace(/<\/ul>\s*<ul>/g,"");
+  t = t.split(/\n{2,}/).map(b=> /^\s*<(ul|pre|h3)/.test(b)?b:`<p>${b.replace(/\n/g,"<br>")}</p>`).join("");
+  return t;
+}
+
+// ---- chat ----
+function addRow(role, who, em, html){
+  const empty = thread.querySelector(".empty"); if(empty) thread.innerHTML="";
+  const div = document.createElement("div");
+  div.className = "row "+(role==="user"?"user":"bot");
+  div.innerHTML = `<div class="av">${role==="user"?"🧑":em}</div>
+    <div class="bubble"><div class="who">${who}</div><div class="body">${html}</div></div>`;
+  thread.appendChild(div); thread.scrollTop = thread.scrollHeight;
+  return div;
+}
+function addTyping(em){
+  const div = document.createElement("div"); div.className="row bot"; div.id="typing";
+  div.innerHTML = `<div class="av">${em}</div><div class="bubble"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  thread.appendChild(div); thread.scrollTop = thread.scrollHeight;
+}
+function rmTyping(){ const t=document.getElementById("typing"); if(t) t.remove(); }
+
+async function sendMsg(){
+  const msg = input.value.trim(); if(!msg || busy) return;
+  busy=true; send.disabled=true;
+  const a = byId[current];
+  addRow("user","You","🧑", md(msg));
+  history.push({role:"user",content:msg});
+  input.value=""; autogrow(input);
+  addTyping(a.em);
+
+  try{
+    const r = await fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({agent:current,message:msg,history:history.slice(0,-1)})});
+    rmTyping();
+    if(!r.ok) throw new Error("server "+r.status);
+    const data = await r.json();
+    if(data.error) throw new Error(data.error);
+    const used = byId[data.agent] || a;
+    const who = current==="auto" ? `${used.nm} &nbsp;<span style="color:var(--muted);font-weight:400">· auto-routed</span>` : used.nm;
+    addRow("bot", who, used.em, md(data.response||"(no response)"));
+    history.push({role:"assistant",content:data.response||""});
+  }catch(err){
+    rmTyping();
+    addRow("bot","Decagent","⚙️", md(
+      "**Preview mode — the chat UI is working, but no agent backend is connected here.**\n\n"+
+      "To actually run your agents, start the Console on your machine:\n\n"+
+      "```\npip install -r runtime/requirements.txt\ncp runtime/.env.example runtime/.env   # add your keys\nuvicorn runtime.server:app --port 8000\n```\n\n"+
+      "Then open **http://localhost:8000** and this same page will talk to your live agents.\n\n_(error: "+esc(err.message)+")_"));
+  }
+  busy=false; send.disabled=false; input.focus();
+}
+
+// ---- input helpers ----
+function autogrow(el){ el.style.height="auto"; el.style.height=Math.min(el.scrollHeight,180)+"px"; }
+function onKey(e){ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); sendMsg(); } }
+function toggleSide(){ side.classList.toggle("open"); scrim.classList.toggle("show"); }
+function closeSide(){ side.classList.remove("open"); scrim.classList.remove("show"); }
+
+renderAgents(); renderEmpty(); input.focus();
+</script>
+</body>
+</html>

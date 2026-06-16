@@ -24,11 +24,13 @@ python runtime/decagent.py --list
 python runtime/decagent.py --agent outreach -m "Write a cold email to dentists offering my booking app"
 ```
 
-## 4. Run the API (for the website)
+## 4. Open the Console — chat with all 10 agents
 ```bash
-uvicorn runtime.server:app --reload --port 8000
-curl http://localhost:8000/agents
+uvicorn runtime.server:app --port 8000
 ```
+Then open **http://localhost:8000** in your browser. You get a ChatGPT-style chat with
+every agent in the sidebar, plus an **Auto** mode that picks the right one for each
+message. This is the main way to use your team yourself.
 
 ## 5. Go to market
 - Open `website/index.html` to see your storefront. Host it (Netlify/Vercel/GitHub Pages).
