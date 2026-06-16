@@ -55,6 +55,12 @@ uvicorn runtime.server:app --port 8000
 Pick any agent from the sidebar, or leave it on **Auto** and your message is routed to
 the right specialist automatically. (UI lives in `app/index.html`.)
 
+**Want a permanent URL you can open from your phone — no terminal?** One-click deploy:
+
+[![Deploy to Render](https://render.com/images/deploy-to-render-button.svg)](https://render.com/deploy?repo=https://github.com/fumbasiyabongajason-ux/Decagents)
+
+Set a `DECAGENT_PASSWORD` to lock it to just you. Full walkthrough: [`docs/DEPLOY.md`](docs/DEPLOY.md).
+
 ## Turn it into a business
 - **Website** (`website/`) — a ready landing + pricing page for your subscription product.
 - **API** (`runtime/server.py`) — serve the agents over HTTP so the website can call them.

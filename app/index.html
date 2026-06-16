@@ -85,6 +85,17 @@
   .send:disabled{opacity:.4;cursor:not-allowed}
   .hint{max-width:760px;margin:8px auto 0;text-align:center;font-size:11.5px;color:var(--muted)}
 
+  /* password gate */
+  .gate{position:fixed;inset:0;background:rgba(8,8,12,.93);backdrop-filter:blur(10px);z-index:100;display:grid;place-items:center}
+  .gatebox{background:var(--panel);border:1px solid var(--line);border-radius:18px;padding:34px 30px;width:min(360px,90vw);text-align:center}
+  .gico{width:48px;height:48px;border-radius:13px;background:var(--grad);display:grid;place-items:center;font-size:24px;color:#08080c;margin:0 auto 16px}
+  .gatebox h2{font-family:'Space Grotesk';font-weight:700;margin-bottom:6px}
+  .gatebox p{color:var(--muted);font-size:14px;margin-bottom:18px}
+  .gatebox input{width:100%;background:var(--ink);border:1px solid var(--line);border-radius:10px;padding:12px 14px;color:var(--text);font-family:inherit;font-size:15px;outline:none;margin-bottom:12px}
+  .gatebox input:focus{border-color:var(--accent)}
+  .gatebox button{width:100%;background:var(--grad);color:#08080c;border:none;border-radius:10px;padding:12px;font-family:'Space Grotesk';font-weight:600;font-size:15px;cursor:pointer}
+  .gerr{color:#ff7a7a;font-size:13px;margin-top:10px;min-height:16px}
+
   @media(max-width:760px){
     .side{position:fixed;left:0;top:0;bottom:0;z-index:40;transform:translateX(-100%);transition:.22s}
     .side.open{transform:none;box-shadow:0 0 60px rgba(0,0,0,.6)}
@@ -95,6 +106,16 @@
 </style>
 </head>
 <body>
+<div class="gate" id="gate" style="display:none">
+  <div class="gatebox">
+    <div class="gico">◐</div>
+    <h2>Decagent Console</h2>
+    <p>Enter your access password.</p>
+    <input type="password" id="gatePw" placeholder="Password" onkeydown="if(event.key==='Enter')doAuth()">
+    <button onclick="doAuth()">Unlock</button>
+    <div class="gerr" id="gateErr"></div>
+  </div>
+</div>
 <div class="app">
   <aside class="side" id="side">
     <div class="brand"><span class="dot">◐</span> Decagent Console</div>
@@ -143,6 +164,7 @@ const byId = Object.fromEntries(AGENTS.map(a=>[a.id,a]));
 let current = "auto";
 let history = [];   // [{role, content}]
 let busy = false;
+let PW = localStorage.getItem("dgpw") || "";   // access password (if server requires one)
 
 // ---- sidebar ----
 function renderAgents(){
@@ -217,9 +239,11 @@ async function sendMsg(){
   addTyping(a.em);
 
   try{
-    const r = await fetch("/chat",{method:"POST",headers:{"Content-Type":"application/json"},
+    const r = await fetch("/chat",{method:"POST",
+      headers:{"Content-Type":"application/json","X-Decagent-Password":PW},
       body:JSON.stringify({agent:current,message:msg,history:history.slice(0,-1)})});
     rmTyping();
+    if(r.status===401){ busy=false; send.disabled=false; showGate(); return; }
     if(!r.ok) throw new Error("server "+r.status);
     const data = await r.json();
     if(data.error) throw new Error(data.error);
@@ -244,7 +268,30 @@ function onKey(e){ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); sendM
 function toggleSide(){ side.classList.toggle("open"); scrim.classList.toggle("show"); }
 function closeSide(){ side.classList.remove("open"); scrim.classList.remove("show"); }
 
-renderAgents(); renderEmpty(); input.focus();
+// ---- access password (only active if the server sets DECAGENT_PASSWORD) ----
+function showGate(){ gate.style.display="grid"; setTimeout(()=>gatePw.focus(),50); }
+async function doAuth(){
+  try{
+    const r = await fetch("/auth",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:gatePw.value})});
+    const d = await r.json();
+    if(d.ok){ PW=gatePw.value; localStorage.setItem("dgpw",PW); gate.style.display="none"; gateErr.textContent=""; input.focus(); }
+    else gateErr.textContent="Wrong password. Try again.";
+  }catch(e){ gateErr.textContent="Can't reach the server."; }
+}
+async function checkAuth(){
+  try{
+    const r = await fetch("/auth"); if(!r.ok) return;
+    const {protected:prot} = await r.json();
+    if(!prot) return;                       // no password set on the server
+    if(PW){
+      const v = await (await fetch("/auth",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:PW})})).json();
+      if(v.ok) return;                      // stored password still valid
+    }
+    showGate();
+  }catch(e){ /* preview / backend not reachable — no gate */ }
+}
+
+renderAgents(); renderEmpty(); input.focus(); checkAuth();
 </script>
 </body>
 </html>

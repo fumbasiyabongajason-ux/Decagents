@@ -1,0 +1,26 @@
+# Render Blueprint — deploys the Decagent Console as a live web service.
+# One-click: push this repo to GitHub, then open
+#   https://render.com/deploy?repo=https://github.com/fumbasiyabongajason-ux/Decagents
+# Render reads this file, builds the app, and gives you a permanent https URL.
+# Full guide: docs/DEPLOY.md   ·   Spec: https://render.com/docs/blueprint-spec
+services:
+  - type: web
+    name: decagent-console
+    runtime: python
+    plan: free                      # free tier is fine for personal use (sleeps when idle)
+    branch: main
+    buildCommand: pip install -r runtime/requirements.txt
+    startCommand: uvicorn runtime.server:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.9"             # modern Python (avoids old-syntax issues)
+      - key: DECAGENT_MODEL
+        value: claude-opus-4-8
+      # --- You paste these in the Render dashboard (kept secret, never in git) ---
+      - key: ANTHROPIC_API_KEY
+        sync: false                 # required — the agents' brain
+      - key: COMPOSIO_API_KEY
+        sync: false                 # needed for tools (GitHub, Gmail, scraping, leads…)
+      - key: DECAGENT_PASSWORD
+        sync: false                 # STRONGLY recommended — locks your public URL

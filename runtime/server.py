@@ -26,7 +26,7 @@ NOTE: This is the open scaffold. Before going live you must add (see billing/):
 The middleware stub `require_active_subscription` shows where that goes.
 """
 from __future__ import annotations
-import json, pathlib
+import json, os, pathlib
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -37,6 +37,10 @@ from . import decagent  # reuse the runtime
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 APP_HTML = ROOT / "app" / "index.html"  # the Console chat UI
+
+# Optional shared password. If set (recommended for any public/cloud URL), the
+# Console requires it before chatting — protects your API spend + connected tools.
+ACCESS_PASSWORD = os.getenv("DECAGENT_PASSWORD", "").strip()
 app = FastAPI(title="Decagent API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
@@ -52,6 +56,10 @@ class ChatRequest(BaseModel):
     agent: str = "auto"          # an agent id, or "auto" to route automatically
     message: str
     history: list[dict] = []     # prior [{role, content}] turns from the Console
+
+
+class AuthRequest(BaseModel):
+    password: str = ""
 
 
 def require_active_subscription(authorization: Optional[str], agent_id: str) -> str:
@@ -106,10 +114,24 @@ def api_info():
             "chat": "POST /chat", "run": "POST /run"}
 
 
+@app.get("/auth")
+def auth_status():
+    """Tells the Console whether a password is required."""
+    return {"protected": bool(ACCESS_PASSWORD)}
+
+
+@app.post("/auth")
+def auth_check(req: AuthRequest):
+    """Verify a password attempt."""
+    return {"ok": (not ACCESS_PASSWORD) or req.password == ACCESS_PASSWORD}
+
+
 @app.post("/chat")
-def chat(req: ChatRequest):
+def chat(req: ChatRequest, x_decagent_password: Optional[str] = Header(default=None)):
     """Console chat endpoint. agent='auto' routes to the best specialist,
     then runs it with the conversation history."""
+    if ACCESS_PASSWORD and (x_decagent_password or "") != ACCESS_PASSWORD:
+        raise HTTPException(401, "unauthorized")
     agent_id = req.agent or "auto"
     try:
         if agent_id == "auto":
