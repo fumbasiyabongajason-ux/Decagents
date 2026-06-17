@@ -38,12 +38,16 @@ def load_tools():
         print(f"! could not read n8n tools file {path}: {e}")
         return None, None
     base = os.getenv("N8N_BASE_URL", "").rstrip("/")
+    single = os.getenv("N8N_WEBHOOK_URL", "").strip()  # ONE router webhook for ALL tools
     tools, wmap = [], {}
     for d in defs:
-        name, wh = d["name"], d["webhook"]
-        if wh.startswith("/") and base:
-            wh = base + wh
-        wmap[name] = wh
+        name = d["name"]
+        if single:                       # all tools flow through one router workflow
+            url = single
+        else:                            # or one webhook per tool
+            wh = d.get("webhook", "")
+            url = base + wh if (wh.startswith("/") and base) else wh
+        wmap[name] = url
         tools.append({"type": "function", "function": {
             "name": name,
             "description": d.get("description", ""),
@@ -71,7 +75,7 @@ def handle(resp, wmap):
             content = f"(no n8n webhook configured for tool '{name}')"
         else:
             try:
-                r = requests.post(url, json=args, headers=headers, timeout=90)
+                r = requests.post(url, json={"tool": name, "args": args}, headers=headers, timeout=90)
                 content = r.text[:6000] if r.text else f"(n8n returned status {r.status_code})"
             except Exception as e:
                 content = f"(n8n call failed: {e})"

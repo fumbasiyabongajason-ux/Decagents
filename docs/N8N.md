@@ -23,7 +23,33 @@ docker run -it --rm -p 5678:5678 -v n8n_data:/home/node/.n8n docker.n8n.io/n8nio
 Open `http://localhost:5678`, create your account. For a public URL, run it on a small
 VPS / Railway / Fly and put it behind HTTPS. (n8n **Cloud** is the paid, hosted option.)
 
-## 2. Build one workflow per tool
+## ⭐ Fastest: connect ALL tools at once (one router workflow)
+Instead of one workflow per tool, use a single "router" workflow that receives every tool
+call. The Console sends `{ "tool": "<name>", "args": {...} }` to one webhook; n8n routes by tool.
+
+1. **Import the starter:** in n8n → **Workflows → Import from File** → pick
+   `n8n/decagent-router.starter.json`. You get a **Webhook** (path `decagent`) → an echo node.
+2. **Point Decagent at it** — in `.env`:
+   ```
+   TOOLS_BACKEND=n8n
+   N8N_WEBHOOK_URL=https://your-n8n.example.com/webhook/decagent
+   ```
+   That single URL now handles **all** tools listed in `runtime/n8n_tools.json`.
+3. **Turn the echo into real actions:** replace the "Echo" node with a **Switch** node on
+   `{{ $json.body.tool }}`, with one output per tool, each going to its action node:
+   | tool | node | map fields from |
+   |------|------|-----------------|
+   | `send_email` | Gmail → Send | `{{ $json.body.args.to/subject/body }}` |
+   | `create_github_issue` | GitHub → Create Issue | `{{ $json.body.args.repo/title/body }}` |
+   | `scrape_url` | HTTP Request (GET) | `{{ $json.body.args.url }}` |
+   | `web_search` | HTTP Request to your search API | `{{ $json.body.args.query }}` |
+   Connect your Gmail/GitHub credentials on those nodes, then **Activate** the workflow.
+
+> Tip: depending on your n8n version the body is at `$json.body` or `$json` — check the
+> webhook node's output and adjust the expressions. Add tools anytime by adding a Switch
+> branch + an entry in `runtime/n8n_tools.json`. No Console change needed.
+
+## (Alternative) Build one workflow per tool
 For each tool (e.g. `send_email`):
 1. Add a **Webhook** node → method `POST`, path e.g. `send-email` → this gives you a URL like
    `https://your-n8n/webhook/send-email`.
