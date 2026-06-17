@@ -20,13 +20,24 @@ services:
         value: https://api.cerebras.ai/v1
       - key: LLM_MODEL
         value: llama-3.3-70b
-      # --- Tools via self-hosted n8n (free); connect later by adding N8N_WEBHOOK_URL ---
+      # --- Tools via Pipedream Connect MCP (managed auth, thousands of apps) ---
+      # The app auto-mints + refreshes the Pipedream token from your client id/secret.
       - key: TOOLS_BACKEND
-        value: n8n
+        value: mcp
+      - key: PIPEDREAM_ENVIRONMENT
+        value: development          # 'development' is free; 'production' (real users) needs a paid plan
+      - key: PIPEDREAM_EXTERNAL_USER_ID
+        value: me
       # --- You paste these in the Render dashboard (kept secret, never in git) ---
       - key: LLM_API_KEY
         sync: false                 # required — your FREE Cerebras key (cloud.cerebras.ai)
       - key: DECAGENT_PASSWORD
         sync: false                 # STRONGLY recommended — locks your public URL
-      - key: N8N_WEBHOOK_URL
-        sync: false                 # OPTIONAL now — add later to connect your n8n tools
+      - key: PIPEDREAM_CLIENT_ID
+        sync: false                 # see docs/PIPEDREAM.md (leave all 3 blank = chat-only)
+      - key: PIPEDREAM_CLIENT_SECRET
+        sync: false
+      - key: PIPEDREAM_PROJECT_ID
+        sync: false                 # proj_xxxxx
+      - key: MCP_APP_SLUGS
+        sync: false                 # which apps to expose, e.g. gmail,github,slack

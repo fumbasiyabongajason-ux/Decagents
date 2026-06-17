@@ -130,28 +130,64 @@ def _history_msgs(history):
     return out
 
 
+def _import_local(name):
+    """Import a sibling runtime module whether we run as a package (uvicorn) or a script."""
+    import importlib
+    for mod in [f"{__package__}.{name}" if __package__ else None, name, f"runtime.{name}"]:
+        if not mod:
+            continue
+        try:
+            return importlib.import_module(mod)
+        except Exception:
+            continue
+    return None
+
+
 def _get_openai_tools(agent):
     """Pick the tools backend and return (tools, handle_fn) for the OpenAI path.
-    Order: n8n (free, self-hosted) if TOOLS_BACKEND=n8n or an n8n tools file exists
-    and Composio isn't configured; else Composio if COMPOSIO_API_KEY is set; else none."""
+    Backends: 'mcp' (Pipedream/Zapier/any MCP), 'n8n' (self-hosted), 'composio', or none.
+    TOOLS_BACKEND forces one; otherwise auto-detect from which env vars are set."""
     backend = os.getenv("TOOLS_BACKEND", "").lower()
-    use_n8n = backend == "n8n" or (backend == "" and not os.getenv("COMPOSIO_API_KEY"))
-    if use_n8n:
-        try:
-            from . import n8n_bridge
-        except Exception:
-            try:
-                import n8n_bridge
-            except Exception:
-                n8n_bridge = None
-        if n8n_bridge is not None:
-            tools, wmap = n8n_bridge.load_tools()
-            if tools:
-                return tools, (lambda resp: n8n_bridge.handle(resp, wmap))
-    if os.getenv("COMPOSIO_API_KEY") and backend != "n8n":
+
+    def via_mcp():
+        b = _import_local("mcp_bridge")
+        if not b:
+            return None, None
+        tools, router = b.load_tools()
+        return (tools, (lambda resp: b.handle(resp, router))) if tools else (None, None)
+
+    def via_n8n():
+        b = _import_local("n8n_bridge")
+        if not b:
+            return None, None
+        tools, wmap = b.load_tools()
+        return (tools, (lambda resp: b.handle(resp, wmap))) if tools else (None, None)
+
+    def via_composio():
+        if not os.getenv("COMPOSIO_API_KEY"):
+            return None, None
         tools, ts = _openai_tools(agent["composio_toolkits"])
-        if tools:
-            return tools, (lambda resp: ts.handle_tool_calls(resp))
+        return (tools, (lambda resp: ts.handle_tool_calls(resp))) if tools else (None, None)
+
+    if backend == "mcp":
+        return via_mcp()
+    if backend == "n8n":
+        return via_n8n()
+    if backend == "composio":
+        return via_composio()
+
+    # auto (no explicit backend): use whatever is configured — MCP > Composio > n8n
+    if os.getenv("MCP_SERVER_URL"):
+        t = via_mcp()
+        if t[0]:
+            return t
+    if os.getenv("COMPOSIO_API_KEY"):
+        t = via_composio()
+        if t[0]:
+            return t
+    t = via_n8n()
+    if t[0]:
+        return t
     return None, None
 
 

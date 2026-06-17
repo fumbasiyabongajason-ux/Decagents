@@ -7,8 +7,8 @@ without running anything locally. We'll use **Render** (free tier works fine).
 1. **Free LLM key (Cerebras)** — go to cloud.cerebras.ai → **API Keys** → create. Free, fastest
    inference, no card. (Required.) *(Groq / Gemini / OpenRouter also work — see `runtime/.env.example`.)*
 2. **A password you'll make up** — anything memorable. This locks your URL so only you can use it.
-3. *(Optional, later)* **n8n tools** — for real actions (email, GitHub…). You can deploy now and
-   add `N8N_WEBHOOK_URL` anytime. Until then the agents simply work as chat.
+3. *(Optional, later)* **Tools via Pipedream** — for real actions (email, GitHub…). You can
+   deploy chat-only now and add your Pipedream creds anytime (see `docs/PIPEDREAM.md`).
 
 ## Deploy in ~5 minutes
 1. Make sure this repo is on your GitHub (it is: `fumbasiyabongajason-ux/Decagents`).
@@ -18,7 +18,8 @@ without running anything locally. We'll use **Render** (free tier works fine).
 4. Render reads `render.yaml` automatically and shows the service. Fill in the secret values:
    - `LLM_API_KEY` → paste your free **Cerebras** key  *(required)*
    - `DECAGENT_PASSWORD` → type the password you chose  *(required)*
-   - `N8N_WEBHOOK_URL` → **leave blank for now**; add it later when your n8n tools are ready  *(optional)*
+   - `PIPEDREAM_CLIENT_ID` / `PIPEDREAM_CLIENT_SECRET` / `PIPEDREAM_PROJECT_ID` / `MCP_APP_SLUGS`
+     → **leave blank to deploy chat-only**; fill later to turn on tools (see `docs/PIPEDREAM.md`)  *(optional)*
 5. Click **Apply** / **Create**. Render builds it (a few minutes the first time).
 6. When it's live, Render gives you a URL like `https://decagent-console.onrender.com`.
    Open it → enter your password → start chatting with all 10 agents. Bookmark it on your phone.
