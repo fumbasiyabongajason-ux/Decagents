@@ -15,18 +15,18 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.9"             # modern Python (avoids old-syntax issues)
-      # --- FREE + fast provider by default: Groq (swap to Gemini/OpenRouter anytime) ---
+      # --- FREE + fastest provider by default: Cerebras (swap to Groq/Gemini anytime) ---
       - key: LLM_BASE_URL
-        value: https://api.groq.com/openai/v1
+        value: https://api.cerebras.ai/v1
       - key: LLM_MODEL
-        value: llama-3.3-70b-versatile
-      # --- Tools via self-hosted n8n (free) ---
+        value: llama-3.3-70b
+      # --- Tools via self-hosted n8n (free); connect later by adding N8N_WEBHOOK_URL ---
       - key: TOOLS_BACKEND
         value: n8n
       # --- You paste these in the Render dashboard (kept secret, never in git) ---
       - key: LLM_API_KEY
-        sync: false                 # required — your FREE Groq key (console.groq.com)
-      - key: N8N_BASE_URL
-        sync: false                 # your n8n base URL, e.g. https://your-n8n.example.com
+        sync: false                 # required — your FREE Cerebras key (cloud.cerebras.ai)
       - key: DECAGENT_PASSWORD
         sync: false                 # STRONGLY recommended — locks your public URL
+      - key: N8N_WEBHOOK_URL
+        sync: false                 # OPTIONAL now — add later to connect your n8n tools
