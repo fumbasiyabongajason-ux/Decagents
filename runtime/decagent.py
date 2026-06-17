@@ -130,13 +130,38 @@ def _history_msgs(history):
     return out
 
 
+def _get_openai_tools(agent):
+    """Pick the tools backend and return (tools, handle_fn) for the OpenAI path.
+    Order: n8n (free, self-hosted) if TOOLS_BACKEND=n8n or an n8n tools file exists
+    and Composio isn't configured; else Composio if COMPOSIO_API_KEY is set; else none."""
+    backend = os.getenv("TOOLS_BACKEND", "").lower()
+    use_n8n = backend == "n8n" or (backend == "" and not os.getenv("COMPOSIO_API_KEY"))
+    if use_n8n:
+        try:
+            from . import n8n_bridge
+        except Exception:
+            try:
+                import n8n_bridge
+            except Exception:
+                n8n_bridge = None
+        if n8n_bridge is not None:
+            tools, wmap = n8n_bridge.load_tools()
+            if tools:
+                return tools, (lambda resp: n8n_bridge.handle(resp, wmap))
+    if os.getenv("COMPOSIO_API_KEY") and backend != "n8n":
+        tools, ts = _openai_tools(agent["composio_toolkits"])
+        if tools:
+            return tools, (lambda resp: ts.handle_tool_calls(resp))
+    return None, None
+
+
 def _run_openai(agent, message, history, cfg):
     try:
         from openai import OpenAI
     except ImportError:
         return "The OpenAI client isn't installed. Run:  pip install openai"
     client = OpenAI(base_url=cfg["base_url"], api_key=cfg["key"])
-    tools, ts = _openai_tools(agent["composio_toolkits"])
+    tools, handle = _get_openai_tools(agent)
 
     messages = [{"role": "system", "content": agent["system_prompt"]}]
     messages += _history_msgs(history)
@@ -149,16 +174,16 @@ def _run_openai(agent, message, history, cfg):
             kwargs["tools"] = tools
         try:
             resp = client.chat.completions.create(**kwargs)
-        except Exception as e:
+        except Exception:
             if tools:  # some free models reject tool schemas — fall back to plain chat
-                tools = ts = None
+                tools = handle = None
                 resp = client.chat.completions.create(model=cfg["model"], messages=messages)
             else:
                 raise
         m = resp.choices[0].message
-        if getattr(m, "tool_calls", None) and ts:
+        if getattr(m, "tool_calls", None) and handle:
             messages.append(m.model_dump(exclude_none=True))
-            messages.extend(ts.handle_tool_calls(resp))
+            messages.extend(handle(resp))
             continue
         final_text = m.content or ""
         break

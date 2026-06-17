@@ -15,15 +15,18 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.9"             # modern Python (avoids old-syntax issues)
-      # --- FREE provider by default: Google Gemini (swap to Groq/OpenRouter if you like) ---
+      # --- FREE + fast provider by default: Groq (swap to Gemini/OpenRouter anytime) ---
       - key: LLM_BASE_URL
-        value: https://generativelanguage.googleapis.com/v1beta/openai/
+        value: https://api.groq.com/openai/v1
       - key: LLM_MODEL
-        value: gemini-2.0-flash
+        value: llama-3.3-70b-versatile
+      # --- Tools via self-hosted n8n (free) ---
+      - key: TOOLS_BACKEND
+        value: n8n
       # --- You paste these in the Render dashboard (kept secret, never in git) ---
       - key: LLM_API_KEY
-        sync: false                 # required — your FREE Google AI Studio key (aistudio.google.com)
-      - key: COMPOSIO_API_KEY
-        sync: false                 # needed for tools (GitHub, Gmail, scraping, leads…)
+        sync: false                 # required — your FREE Groq key (console.groq.com)
+      - key: N8N_BASE_URL
+        sync: false                 # your n8n base URL, e.g. https://your-n8n.example.com
       - key: DECAGENT_PASSWORD
         sync: false                 # STRONGLY recommended — locks your public URL

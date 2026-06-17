@@ -4,9 +4,10 @@
 openai>=1.40.0             # used for ALL free providers: Gemini, Groq, OpenRouter, OpenAI, local Ollama
 anthropic>=0.39.0          # only needed if you use Claude instead
 
-# --- Agent tools (Composio) ---
-composio-openai>=0.5.0     # tools for OpenAI-compatible providers (the default path)
-composio-claude>=0.5.0     # tools when using Claude
+# --- Agent tools ---
+requests>=2.31.0           # used by the n8n tool bridge (free, self-hosted tools)
+composio-openai>=0.5.0     # OPTIONAL — only if you use Composio instead of n8n
+composio-claude>=0.5.0     # OPTIONAL — Composio tools when using Claude
 
 # --- Web server (serves the Console + API) ---
 fastapi>=0.110.0
