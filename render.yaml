@@ -19,7 +19,7 @@ services:
       - key: LLM_BASE_URL
         value: https://api.cerebras.ai/v1
       - key: LLM_MODEL
-        value: llama-3.3-70b
+        value: gpt-oss-120b          # public Cerebras models: gpt-oss-120b or zai-glm-4.7
       # --- Tools via Pipedream Connect MCP (managed auth, thousands of apps) ---
       # The app auto-mints + refreshes the Pipedream token from your client id/secret.
       - key: TOOLS_BACKEND
