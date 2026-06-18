@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Decagent Console</title>
+<title>JasonAgents</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;450;500;600&display=swap" rel="stylesheet">
@@ -119,10 +119,20 @@
 </style>
 </head>
 <body>
+<div class="gate" id="gate" style="display:none">
+  <div class="gatebox">
+    <div class="gico">◐</div>
+    <h2>JasonAgents</h2>
+    <p>Enter your password to access your console.</p>
+    <input type="password" id="gatePw" placeholder="Password" onkeydown="if(event.key==='Enter')doAuth()">
+    <button onclick="doAuth()">Unlock</button>
+    <div class="gerr" id="gateErr"></div>
+  </div>
+</div>
 <div class="app">
   <aside class="side" id="side">
     <div class="top">
-      <div class="brand"><span class="dot">◐</span> Decagent</div>
+      <div class="brand"><span class="dot">◐</span> JasonAgents</div>
       <button class="newbtn" onclick="newChat()">✚&nbsp; New chat</button>
     </div>
     <div class="threads" id="threadList"></div>
@@ -153,7 +163,7 @@
                   oninput="autogrow(this)" onkeydown="onKey(event)"></textarea>
         <button class="send" id="send" onclick="sendMsg()">➤</button>
       </div>
-      <div class="hint">Decagent can use tools and make mistakes — review important actions. Files: text &amp; code only.</div>
+      <div class="hint">JasonAgents can use tools and make mistakes — review important actions. Files: text &amp; code only.</div>
     </div>
   </main>
 </div>
@@ -175,6 +185,7 @@ const AGENTS = [
 const byId = Object.fromEntries(AGENTS.map(a=>[a.id,a]));
 const FILE_CAP = 16000;
 let threads = [], currentId = null, busy = false, attachments = [];
+let PW = localStorage.getItem("japw") || "";   // access password
 
 // ---------- persistence ----------
 function load(){ try{ threads = JSON.parse(localStorage.getItem("dg_threads")||"[]"); }catch(e){ threads=[]; } }
@@ -316,9 +327,10 @@ async function sendMsg(){
   const apiHistory = t.messages.slice(0,-1).map(m=>({role:m.role, content:m.content}));
   try{
     const r=await fetch("/chat",{method:"POST",
-      headers:{"Content-Type":"application/json"},
+      headers:{"Content-Type":"application/json","X-Decagent-Password":PW},
       body:JSON.stringify({agent:t.agent, message:apiContent, history:apiHistory.slice(-10)})});
     document.getElementById("typing")?.remove();
+    if(r.status===401){ busy=false; send.disabled=false; showGate(); return; }
     if(!r.ok) throw new Error("HTTP "+r.status);
     const data=await r.json();
     if(data.error){
@@ -342,13 +354,33 @@ function onKey(e){ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); sendM
 function toggleSide(){ side.classList.toggle("open"); scrim.classList.toggle("show"); }
 function closeSide(){ side.classList.remove("open"); scrim.classList.remove("show"); }
 
+// ---------- password / login page ----------
+function showGate(){ gate.style.display="grid"; setTimeout(()=>gatePw.focus(),60); }
+async function doAuth(){
+  try{
+    const r=await fetch("/auth",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:gatePw.value})});
+    const d=await r.json();
+    if(d.ok){ PW=gatePw.value; localStorage.setItem("japw",PW); gate.style.display="none"; gateErr.textContent=""; input.focus(); }
+    else gateErr.textContent="Wrong password. Try again.";
+  }catch(e){ gateErr.textContent="Can't reach the server (it may be waking up — retry)."; }
+}
+async function checkAuth(){
+  try{
+    const r=await fetch("/auth"); if(!r.ok) return;
+    const {protected:prot}=await r.json();
+    if(!prot) return;
+    if(PW){ const v=await(await fetch("/auth",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:PW})})).json(); if(v.ok) return; }
+    showGate();
+  }catch(e){ /* offline/preview — no gate */ }
+}
+
 // ---------- init ----------
 function initAgentSelect(){
   agentSel.innerHTML = AGENTS.map(a=>`<option value="${a.id}">${a.em}  ${a.nm}${a.id==='auto'?' — pick best':''}</option>`).join("");
 }
 load();
 if(threads.length===0){ newChat(); } else { currentId=threads[0].id; }
-initAgentSelect(); renderAll(); input.focus();
+initAgentSelect(); renderAll(); checkAuth(); input.focus();
 </script>
 </body>
 </html>

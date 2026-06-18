@@ -40,7 +40,7 @@ APP_HTML = ROOT / "app" / "index.html"  # the Console chat UI
 
 # Optional shared password. If set (recommended for any public/cloud URL), the
 # Console requires it before chatting — protects your API spend + connected tools.
-ACCESS_PASSWORD = os.getenv("DECAGENT_PASSWORD", "").strip()
+ACCESS_PASSWORD = (os.getenv("DECAGENT_PASSWORD") or "eiziee").strip()
 app = FastAPI(title="Decagent API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
@@ -130,6 +130,8 @@ def auth_check(req: AuthRequest):
 def chat(req: ChatRequest, x_decagent_password: Optional[str] = Header(default=None)):
     """Console chat endpoint. agent='auto' routes to the best specialist,
     then runs it with the conversation history."""
+    if ACCESS_PASSWORD and (x_decagent_password or "") != ACCESS_PASSWORD:
+        raise HTTPException(401, "unauthorized")
     agent_id = req.agent or "auto"
     try:
         if agent_id == "auto":

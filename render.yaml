@@ -32,7 +32,7 @@ services:
       - key: LLM_API_KEY
         sync: false                 # required — your FREE Cerebras key (cloud.cerebras.ai)
       - key: DECAGENT_PASSWORD
-        sync: false                 # STRONGLY recommended — locks your public URL
+        value: eiziee               # login password (in repo so it "just works"; change here anytime to keep private)
       - key: PIPEDREAM_CLIENT_ID
         sync: false                 # see docs/PIPEDREAM.md (leave all 3 blank = chat-only)
       - key: PIPEDREAM_CLIENT_SECRET
