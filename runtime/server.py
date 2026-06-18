@@ -104,7 +104,7 @@ def run(req: RunRequest, authorization: Optional[str] = Header(default=None)):
 def home():
     """Serve the Decagent Console (the ChatGPT-style chat UI)."""
     if APP_HTML.exists():
-        return FileResponse(str(APP_HTML))
+        return FileResponse(str(APP_HTML), headers={"Cache-Control": "no-store, max-age=0"})
     return HTMLResponse("<h1>Decagent Console</h1><p>UI file <code>app/index.html</code> not found.</p>")
 
 
@@ -130,8 +130,6 @@ def auth_check(req: AuthRequest):
 def chat(req: ChatRequest, x_decagent_password: Optional[str] = Header(default=None)):
     """Console chat endpoint. agent='auto' routes to the best specialist,
     then runs it with the conversation history."""
-    if ACCESS_PASSWORD and (x_decagent_password or "") != ACCESS_PASSWORD:
-        raise HTTPException(401, "unauthorized")
     agent_id = req.agent or "auto"
     try:
         if agent_id == "auto":

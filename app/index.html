@@ -120,18 +120,6 @@
 </head>
 <body>
 <div class="app">
-  <!-- gate -->
-  <div class="gate" id="gate" style="display:none">
-    <div class="gatebox">
-      <div class="gico">◐</div>
-      <h2>Decagent Console</h2>
-      <p>Enter your access password to start.</p>
-      <input type="password" id="gatePw" placeholder="Password" onkeydown="if(event.key==='Enter')doAuth()">
-      <button onclick="doAuth()">Unlock</button>
-      <div class="gerr" id="gateErr"></div>
-    </div>
-  </div>
-
   <aside class="side" id="side">
     <div class="top">
       <div class="brand"><span class="dot">◐</span> Decagent</div>
@@ -187,7 +175,6 @@ const AGENTS = [
 const byId = Object.fromEntries(AGENTS.map(a=>[a.id,a]));
 const FILE_CAP = 16000;
 let threads = [], currentId = null, busy = false, attachments = [];
-let PW = localStorage.getItem("dgpw") || "";
 
 // ---------- persistence ----------
 function load(){ try{ threads = JSON.parse(localStorage.getItem("dg_threads")||"[]"); }catch(e){ threads=[]; } }
@@ -241,7 +228,7 @@ function renderMessages(){
     const a=byId[(t&&t.agent)||"auto"];
     view.innerHTML=`<div class="empty"><div class="big">${a.em}</div>
       <h2>${a.id==='auto'?'Your AI team, one chat':a.nm}</h2>
-      <p>${a.id==='auto'?'Tell me what you need — I\\'ll route it to the right specialist. Pick a specific agent up top anytime.':a.tg+'.'}</p>
+      <p>${a.id==='auto'?'Tell me what you need — I will route it to the right specialist. Pick a specific agent up top anytime.':a.tg+'.'}</p>
       <div class="chips">${a.ex.map(e=>`<div class="chip" onclick="useChip(this)">${esc(e)}</div>`).join("")}</div></div>`;
     return;
   }
@@ -329,10 +316,9 @@ async function sendMsg(){
   const apiHistory = t.messages.slice(0,-1).map(m=>({role:m.role, content:m.content}));
   try{
     const r=await fetch("/chat",{method:"POST",
-      headers:{"Content-Type":"application/json","X-Decagent-Password":PW},
+      headers:{"Content-Type":"application/json"},
       body:JSON.stringify({agent:t.agent, message:apiContent, history:apiHistory.slice(-10)})});
     document.getElementById("typing")?.remove();
-    if(r.status===401){ busy=false; send.disabled=false; showGate(); return; }
     if(!r.ok) throw new Error("HTTP "+r.status);
     const data=await r.json();
     if(data.error){
@@ -356,33 +342,13 @@ function onKey(e){ if(e.key==="Enter" && !e.shiftKey){ e.preventDefault(); sendM
 function toggleSide(){ side.classList.toggle("open"); scrim.classList.toggle("show"); }
 function closeSide(){ side.classList.remove("open"); scrim.classList.remove("show"); }
 
-// ---------- password ----------
-function showGate(){ gate.style.display="grid"; setTimeout(()=>gatePw.focus(),50); }
-async function doAuth(){
-  try{
-    const r=await fetch("/auth",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:gatePw.value})});
-    const d=await r.json();
-    if(d.ok){ PW=gatePw.value; localStorage.setItem("dgpw",PW); gate.style.display="none"; gateErr.textContent=""; input.focus(); }
-    else gateErr.textContent="Wrong password. Try again.";
-  }catch(e){ gateErr.textContent="Can't reach the server (it may be waking up — retry)."; }
-}
-async function checkAuth(){
-  try{
-    const r=await fetch("/auth"); if(!r.ok) return;
-    const {protected:prot}=await r.json();
-    if(!prot) return;
-    if(PW){ const v=await(await fetch("/auth",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:PW})})).json(); if(v.ok) return; }
-    showGate();
-  }catch(e){ /* offline/preview — no gate */ }
-}
-
 // ---------- init ----------
 function initAgentSelect(){
   agentSel.innerHTML = AGENTS.map(a=>`<option value="${a.id}">${a.em}  ${a.nm}${a.id==='auto'?' — pick best':''}</option>`).join("");
 }
 load();
 if(threads.length===0){ newChat(); } else { currentId=threads[0].id; }
-initAgentSelect(); renderAll(); checkAuth(); input.focus();
+initAgentSelect(); renderAll(); input.focus();
 </script>
 </body>
 </html>
