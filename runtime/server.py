@@ -30,7 +30,7 @@ import json, os, pathlib
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from pydantic import BaseModel
 
 from . import decagent  # reuse the runtime
@@ -111,7 +111,60 @@ def home():
 @app.get("/api")
 def api_info():
     return {"product": "Decagent Console", "console": "/", "agents": "/agents",
-            "chat": "POST /chat", "run": "POST /run"}
+            "chat": "POST /chat", "run": "POST /run", "connect": "GET /connect"}
+
+
+@app.get("/connect")
+def connect(app: Optional[str] = None, pw: Optional[str] = None):
+    """One-click helper to connect your Pipedream app accounts (no curl needed).
+    Visit /connect?pw=YOUR_PASSWORD to see a button per app in MCP_APP_SLUGS,
+    or /connect?app=gmail&pw=... to jump straight to authorizing one app."""
+    if ACCESS_PASSWORD and (pw or "") != ACCESS_PASSWORD:
+        return HTMLResponse("<h3>Add <code>?pw=YOUR_PASSWORD</code> to the URL.</h3>", status_code=401)
+    cid = os.getenv("PIPEDREAM_CLIENT_ID")
+    sec = os.getenv("PIPEDREAM_CLIENT_SECRET")
+    proj = os.getenv("PIPEDREAM_PROJECT_ID")
+    if not (cid and sec and proj):
+        return HTMLResponse("<h3>Set PIPEDREAM_CLIENT_ID, PIPEDREAM_CLIENT_SECRET and "
+                            "PIPEDREAM_PROJECT_ID in Render → Environment first, then reload.</h3>")
+    env = os.getenv("PIPEDREAM_ENVIRONMENT", "development")
+    uid = os.getenv("PIPEDREAM_EXTERNAL_USER_ID", "me")
+    import requests
+    try:
+        tok = requests.post("https://api.pipedream.com/v1/oauth/token",
+                            json={"grant_type": "client_credentials", "client_id": cid, "client_secret": sec},
+                            timeout=30).json().get("access_token")
+        r = requests.post(f"https://api.pipedream.com/v1/connect/{proj}/tokens",
+                          headers={"Authorization": f"Bearer {tok}", "X-PD-Environment": env,
+                                   "Content-Type": "application/json"},
+                          json={"external_user_id": uid}, timeout=30).json()
+    except Exception as e:
+        return HTMLResponse(f"<h3>Could not reach Pipedream: {e}</h3>", status_code=502)
+    link = r.get("connect_link_url")
+    token = r.get("token") or r.get("connect_token")
+    if not (link or token):
+        return HTMLResponse(f"<h3>Pipedream did not return a connect token.</h3><pre>{json.dumps(r)[:600]}</pre>",
+                            status_code=502)
+
+    def app_url(slug):
+        if link:
+            return link + ("&" if "?" in link else "?") + "app=" + slug
+        return f"https://pipedream.com/_static/connect.html?token={token}&connectLink=true&app={slug}"
+
+    if app:
+        return RedirectResponse(app_url(app))
+    slugs = [s.strip() for s in os.getenv("MCP_APP_SLUGS", "").split(",") if s.strip()] or ["gmail", "github"]
+    btns = "".join(
+        f'<a href="/connect?app={s}&pw={pw}" style="display:block;margin:10px 0;padding:13px 16px;'
+        f'background:#6E56F8;color:#0a0a0f;border-radius:11px;text-decoration:none;font-weight:600">'
+        f'Connect {s} &rarr;</a>' for s in slugs)
+    return HTMLResponse(
+        "<html><body style='font-family:system-ui,sans-serif;max-width:440px;margin:48px auto;"
+        "padding:0 20px;background:#0d0d13;color:#ececf1'>"
+        f"<h2 style='font-family:Space Grotesk,sans-serif'>Connect your apps</h2>"
+        f"<p style='color:#9a9aac'>Authorizing as user <b>{uid}</b> (environment: {env}). "
+        "Tap each app to connect it — then your agents can use it.</p>"
+        f"{btns}</body></html>")
 
 
 @app.get("/auth")
