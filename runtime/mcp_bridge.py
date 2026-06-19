@@ -188,14 +188,29 @@ def _collect(client, tools, router, seen, prefix=""):
         }})
 
 
+_CACHE = {"key": None, "at": 0, "result": (None, None)}
+
+
 def load_tools():
-    """Return (openai_tools, ToolRouter) or (None, None)."""
+    """Return (openai_tools, ToolRouter) or (None, None).
+    Cached briefly so we don't reconnect on every message, and the tool count is
+    capped (MCP_MAX_TOOLS, default 64) so listing many apps never overflows the LLM."""
+    import time
     url = os.getenv("MCP_SERVER_URL", "").strip()
     if not url and os.getenv("PIPEDREAM_CLIENT_ID"):
         url = "https://remote.mcp.pipedream.net/v3"   # Pipedream default endpoint
     if not url:
         return None, None
     slugs = [s.strip() for s in os.getenv("MCP_APP_SLUGS", "").split(",") if s.strip()]
+    max_tools = int(os.getenv("MCP_MAX_TOOLS", "64"))
+    ttl = int(os.getenv("MCP_CACHE_TTL", "300"))
+
+    key = "|".join([url, os.getenv("MCP_APP_SLUGS", ""), os.getenv("MCP_HEADERS", ""),
+                    os.getenv("PIPEDREAM_PROJECT_ID", ""), os.getenv("PIPEDREAM_EXTERNAL_USER_ID", "")])
+    now = time.time()
+    if _CACHE["key"] == key and (now - _CACHE["at"]) < ttl and _CACHE["result"][0]:
+        return _CACHE["result"]
+
     tools, router, seen = [], ToolRouter(), set()
     try:
         if slugs:  # Pipedream multi-app: one connection per app slug
@@ -210,7 +225,15 @@ def load_tools():
     except Exception as e:
         print("! MCP connect/list failed:", e)
         return None, None
-    return (tools or None), (router if tools else None)
+
+    if len(tools) > max_tools:
+        print(f"! MCP exposed {len(tools)} tools; capping to {max_tools} "
+              f"(an LLM can't handle thousands — expose fewer apps via MCP_APP_SLUGS).")
+        tools = tools[:max_tools]
+
+    result = ((tools or None), (router if tools else None))
+    _CACHE.update(key=key, at=now, result=result)
+    return result
 
 
 def handle(resp, router):

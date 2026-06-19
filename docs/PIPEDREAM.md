@@ -41,6 +41,17 @@ That's it — restart/redeploy and your agents gain those apps' tools.
 - It mints the bearer token from your client id/secret and **auto-refreshes** it (~1h expiry).
 - Tool names are prefixed by app (e.g. `gmail_send_email`) so the agent knows what's what.
 
+## How many apps can I connect? (the "1000 apps" question)
+You get *access* to ~2,700 apps — but you **expose a focused set** to the agents, not all at once.
+An LLM can only reliably use a few dozen tools per request; thousands would break the API call.
+So list the apps you actually use in `MCP_APP_SLUGS`, all at once, e.g.:
+```
+MCP_APP_SLUGS=gmail,github,slack,notion,google_sheets,google_calendar,linear,airtable
+```
+That's "many at once" — and you add or swap any app anytime by editing that one line (instant, no rebuild).
+The bridge caps exposed tools at `MCP_MAX_TOOLS` (default 64) and caches the tool list for a few minutes,
+so even a long app list stays fast and never overflows the model.
+
 ## Honest notes (please read before you rely on it)
 - **First run is the real test.** This was wired up without live Pipedream credentials, so
   verify on your first deploy. If an agent says a tool failed, check, in order:
