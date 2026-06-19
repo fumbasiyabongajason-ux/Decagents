@@ -69,6 +69,18 @@
   .err b{color:#ffb0b0}
   .filechip-msg{display:inline-flex;align-items:center;gap:6px;background:var(--panel);border:1px solid var(--line2);border-radius:7px;padding:3px 9px;font-size:12.5px;color:var(--muted);margin-top:6px;margin-right:6px}
 
+  /* reasoning & steps trace */
+  .steps{margin:0 0 12px;border:1px solid var(--line);border-radius:10px;background:#0c0c14;overflow:hidden}
+  .steps summary{cursor:pointer;padding:9px 13px;font-family:'Space Grotesk';font-weight:600;font-size:12.5px;color:var(--accent2);list-style:none;user-select:none}
+  .steps summary::-webkit-details-marker{display:none}
+  .steps summary::before{content:"▸";color:var(--muted);margin-right:7px;display:inline-block}
+  .steps[open] summary::before{content:"▾"}
+  .step{padding:8px 13px;border-top:1px solid var(--line);font-size:13px;line-height:1.5}
+  .step.reasoning{color:#cfcfdb;white-space:pre-wrap;max-height:280px;overflow:auto}
+  .step.tool{color:#b6a7ff}
+  .step.result{color:var(--muted)}
+  .step .args{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:#000;border:1px solid var(--line);border-radius:6px;padding:6px 8px;margin-top:5px;white-space:pre-wrap;word-break:break-word;max-height:220px;overflow:auto}
+
   /* empty state */
   .empty{max-width:720px;margin:0 auto;padding:8vh 24px 24px;text-align:center}
   .empty .big{font-size:30px;width:64px;height:64px;border-radius:17px;background:var(--grad);display:grid;place-items:center;margin:0 auto 20px;color:#08080c}
@@ -252,7 +264,7 @@ function rowHtml(m){
   const who=isUser?"You":(m.who||a.nm);
   const av=isUser?"🧑":(m.em||a.em);
   const bodyHtml = m.error ? `<div class="err"><b>⚠️ ${esc(m.error.title)}</b><br>${esc(m.error.detail)}</div>`
-                           : md(m.display||m.content||"");
+                           : stepsHtml(m.steps)+md(m.display||m.content||"");
   return `<div class="msg ${isUser?'user':'bot'}"><div class="msg-in">
     <div class="av">${av}</div><div class="body"><div class="who">${who}</div>${bodyHtml}</div></div></div>`;
 }
@@ -272,6 +284,16 @@ function md(t){
   t=t.replace(/(<li>[\s\S]*?<\/li>)/g,m=>`<ul>${m}</ul>`).replace(/<\/ul>\s*<ul>/g,"");
   t=t.split(/\n{2,}/).map(b=>/^\s*<(ul|pre|h3)/.test(b)?b:`<p>${b.replace(/\n/g,"<br>")}</p>`).join("");
   return t;
+}
+function stepsHtml(steps){
+  if(!steps || !steps.length) return "";
+  const items=steps.map(s=>{
+    if(s.type==="reasoning")  return `<div class="step reasoning">💭 ${esc(s.text)}</div>`;
+    if(s.type==="tool_call")  return `<div class="step tool">🔧 <b>${esc(s.name)}</b><div class="args">${esc(s.args||"")}</div></div>`;
+    if(s.type==="tool_result")return `<div class="step result">↳ ${esc(s.name||"result")}<div class="args">${esc(s.content||"")}</div></div>`;
+    return "";
+  }).join("");
+  return `<details class="steps" open><summary>🧠 Reasoning &amp; steps (${steps.length})</summary>${items}</details>`;
 }
 
 // ---------- files ----------
@@ -338,7 +360,7 @@ async function sendMsg(){
     }else{
       const used=byId[data.agent]||a;
       const who = t.agent==="auto" ? `${used.nm} · auto-routed` : used.nm;
-      t.messages.push({role:"assistant", content:data.response||"(empty response)", who, em:used.em, agent:used.id});
+      t.messages.push({role:"assistant", content:data.response||"(empty response)", who, em:used.em, agent:used.id, steps:data.steps||[]});
     }
   }catch(err){
     document.getElementById("typing")?.remove();

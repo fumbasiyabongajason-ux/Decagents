@@ -40,7 +40,7 @@ APP_HTML = ROOT / "app" / "index.html"  # the Console chat UI
 
 # Optional shared password. If set (recommended for any public/cloud URL), the
 # Console requires it before chatting — protects your API spend + connected tools.
-ACCESS_PASSWORD = (os.getenv("DECAGENT_PASSWORD") or "eiziee").strip()
+ACCESS_PASSWORD = (os.getenv("DECAGENT_PASSWORD") or "Siya@018").strip()
 app = FastAPI(title="Decagent API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
@@ -136,8 +136,7 @@ def chat(req: ChatRequest, x_decagent_password: Optional[str] = Header(default=N
     try:
         if agent_id == "auto":
             agent_id = decagent.route(req.message)
-        text = decagent.run(agent_id, req.message,
-                             history=req.history[-10:], verbose=False)
-        return {"agent": agent_id, "response": text}
+        text, steps = decagent.run_traced(agent_id, req.message, history=req.history[-10:])
+        return {"agent": agent_id, "response": text, "steps": steps}
     except (Exception, SystemExit) as e:  # missing keys/deps, bad id, API errors — report cleanly
         return {"agent": agent_id, "response": None, "error": str(e) or "agent runtime error"}

@@ -195,7 +195,7 @@ def _run_openai(agent, message, history, cfg):
     try:
         from openai import OpenAI
     except ImportError:
-        return "The OpenAI client isn't installed. Run:  pip install openai"
+        return "The OpenAI client isn't installed. Run:  pip install openai", []
     client = OpenAI(base_url=cfg["base_url"], api_key=cfg["key"])
     tools, handle = _get_openai_tools(agent)
 
@@ -203,7 +203,7 @@ def _run_openai(agent, message, history, cfg):
     messages += _history_msgs(history)
     messages.append({"role": "user", "content": message})
 
-    final_text = ""
+    steps, final_text = [], ""
     for _ in range(MAX_TURNS):
         kwargs = {"model": cfg["model"], "messages": messages}
         if tools:
@@ -217,27 +217,41 @@ def _run_openai(agent, message, history, cfg):
             else:
                 raise
         m = resp.choices[0].message
-        if getattr(m, "tool_calls", None) and handle:
+        reasoning = getattr(m, "reasoning", None) or getattr(m, "reasoning_content", None)
+        if reasoning:
+            steps.append({"type": "reasoning", "text": str(reasoning)[:4000]})
+        tcs = getattr(m, "tool_calls", None)
+        if tcs and handle:
+            idname = {}
+            for tc in tcs:
+                steps.append({"type": "tool_call", "name": tc.function.name,
+                              "args": tc.function.arguments or ""})
+                idname[tc.id] = tc.function.name
             messages.append(m.model_dump(exclude_none=True))
-            messages.extend(handle(resp))
+            results = handle(resp)
+            for res in results:
+                steps.append({"type": "tool_result",
+                              "name": idname.get(res.get("tool_call_id"), ""),
+                              "content": (res.get("content") or "")[:1500]})
+            messages.extend(results)
             continue
         final_text = m.content or ""
         break
-    return (final_text or "").strip()
+    return (final_text or "").strip(), steps
 
 
 def _run_anthropic(agent, message, history, cfg):
     try:
         from anthropic import Anthropic
     except ImportError:
-        return "The Anthropic client isn't installed. Run:  pip install anthropic"
+        return "The Anthropic client isn't installed. Run:  pip install anthropic", []
     client = Anthropic(api_key=cfg["key"])
     tools, ts = _anthropic_tools(agent["composio_toolkits"])
 
     messages = _history_msgs(history)
     messages.append({"role": "user", "content": message})
 
-    final_text = ""
+    steps, final_text = [], ""
     for _ in range(MAX_TURNS):
         kwargs = dict(model=cfg["model"], max_tokens=4096,
                       system=agent["system_prompt"], messages=messages)
@@ -245,32 +259,46 @@ def _run_anthropic(agent, message, history, cfg):
             kwargs["tools"] = tools
         resp = client.messages.create(**kwargs)
         for block in resp.content:
-            if getattr(block, "type", None) == "text":
+            bt = getattr(block, "type", None)
+            if bt == "text":
                 final_text += block.text
+            elif bt == "tool_use":
+                steps.append({"type": "tool_call", "name": block.name, "args": json.dumps(block.input)})
         if resp.stop_reason == "tool_use" and ts:
             messages.append({"role": "assistant", "content": resp.content})
-            messages.append({"role": "user", "content": ts.handle_tool_calls(resp)})
+            results = ts.handle_tool_calls(resp)
+            steps.append({"type": "tool_result", "name": "", "content": str(results)[:1500]})
+            messages.append({"role": "user", "content": results})
             continue
         break
-    return final_text.strip()
+    return final_text.strip(), steps
+
+
+def _dispatch(agent, message, history):
+    """Return (text, steps) using the configured provider. steps power the reasoning trace."""
+    cfg = provider_config()
+    if cfg["kind"] == "openai":
+        return _run_openai(agent, message, history, cfg)
+    if cfg["kind"] == "anthropic":
+        return _run_anthropic(agent, message, history, cfg)
+    return NO_PROVIDER_MSG, []
 
 
 def run(agent_id: str, message: str, history: list | None = None,
         verbose: bool = True) -> str:
-    """Run one agent on a message. `history` is optional prior [{role, content}] turns."""
+    """Run one agent; returns the final text (used by the CLI and /run)."""
     agent = load_agent(agent_id)
     if verbose:
         print(f"\n{agent['emoji']}  {agent['name']} — {agent['tagline']}\n" + "-" * 60)
-    cfg = provider_config()
-    if cfg["kind"] == "openai":
-        text = _run_openai(agent, message, history, cfg)
-    elif cfg["kind"] == "anthropic":
-        text = _run_anthropic(agent, message, history, cfg)
-    else:
-        text = NO_PROVIDER_MSG
+    text, _steps = _dispatch(agent, message, history)
     if verbose:
         print(text or "(no response)")
     return text
+
+
+def run_traced(agent_id: str, message: str, history: list | None = None):
+    """Run one agent; returns (text, steps). steps = the reasoning + tool trace for the Console."""
+    return _dispatch(load_agent(agent_id), message, history)
 
 
 def _complete_text(system: str, user: str, max_tokens: int = 16) -> str:
