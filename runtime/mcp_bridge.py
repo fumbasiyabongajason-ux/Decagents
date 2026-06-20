@@ -110,7 +110,7 @@ class MCPClient:
         headers = dict(self.base_headers)
         if self.session_id:
             headers["Mcp-Session-Id"] = self.session_id
-        r = requests.post(self.url, json=body, headers=headers, timeout=90)
+        r = requests.post(self.url, json=body, headers=headers, timeout=15)
         sid = r.headers.get("Mcp-Session-Id") or r.headers.get("mcp-session-id")
         if sid:
             self.session_id = sid
@@ -212,15 +212,33 @@ def load_tools():
         return _CACHE["result"]
 
     tools, router, seen = [], ToolRouter(), set()
-    if slugs:  # Pipedream multi-app: one connection per app — resilient, skip any that fail
-        for slug in slugs:
+    if slugs:  # Pipedream multi-app: connect to every app IN PARALLEL (fast even with many); skip failures
+        import concurrent.futures
+
+        def _build(slug):
             try:
-                client = MCPClient(url, _base_headers(slug))
-                client.connect()
-                _collect(client, tools, router, seen, prefix=slug)
+                c = MCPClient(url, _base_headers(slug))
+                c.connect()
+                return slug, c, c.list_tools()
             except Exception as e:
                 print(f"! MCP app '{slug}' failed (skipped): {e}")
-                continue
+                return slug, None, []
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(slugs))) as ex:
+            for slug, client, raw in ex.map(_build, slugs):
+                if not client:
+                    continue
+                for t in raw:
+                    orig = t.get("name")
+                    if not orig:
+                        continue
+                    safe = _safe_name(orig, seen, prefix=slug)
+                    router.add(safe, client, orig)
+                    tools.append({"type": "function", "function": {
+                        "name": safe,
+                        "description": (t.get("description") or "")[:1024],
+                        "parameters": t.get("inputSchema") or {"type": "object", "properties": {}},
+                    }})
     else:          # single server returns its full tool set (Zapier, etc.)
         try:
             client = MCPClient(url, _base_headers())
