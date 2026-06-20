@@ -146,6 +146,7 @@
     <div class="top">
       <div class="brand"><span class="dot">◐</span> JasonAgents</div>
       <button class="newbtn" onclick="newChat()">✚&nbsp; New chat</button>
+      <button class="newbtn" onclick="openConnect()" style="margin-top:8px">🔌&nbsp; Connect apps</button>
     </div>
     <div class="threads" id="threadList"></div>
     <div class="foot">
@@ -378,6 +379,10 @@ function closeSide(){ side.classList.remove("open"); scrim.classList.remove("sho
 
 // ---------- password / login page ----------
 function showGate(){ gate.style.display="grid"; setTimeout(()=>gatePw.focus(),60); }
+function openConnect(){
+  if(!PW){ showGate(); return; }   // must be logged in first
+  window.open("/connect?pw=" + encodeURIComponent(PW), "_blank");
+}
 async function doAuth(){
   try{
     const r=await fetch("/auth",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({password:gatePw.value})});
