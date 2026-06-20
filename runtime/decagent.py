@@ -143,10 +143,9 @@ def _import_local(name):
     return None
 
 
-def _get_openai_tools(agent):
-    """Pick the tools backend and return (tools, handle_fn) for the OpenAI path.
-    Backends: 'mcp' (Pipedream/Zapier/any MCP), 'n8n' (self-hosted), 'composio', or none.
-    TOOLS_BACKEND forces one; otherwise auto-detect from which env vars are set."""
+def _backend_call(agent):
+    """Return (backend_tools, call_fn) where call_fn(name, args) -> result string.
+    Picks the connected tools backend (MCP/Pipedream, n8n, or Composio), or (None, None)."""
     backend = os.getenv("TOOLS_BACKEND", "").lower()
 
     def via_mcp():
@@ -154,20 +153,28 @@ def _get_openai_tools(agent):
         if not b:
             return None, None
         tools, router = b.load_tools()
-        return (tools, (lambda resp: b.handle(resp, router))) if tools else (None, None)
+        return (tools, (lambda name, args: router.call(name, args))) if tools else (None, None)
 
     def via_n8n():
         b = _import_local("n8n_bridge")
         if not b:
             return None, None
         tools, wmap = b.load_tools()
-        return (tools, (lambda resp: b.handle(resp, wmap))) if tools else (None, None)
+        return (tools, (lambda name, args: b.execute_one(name, args, wmap))) if tools else (None, None)
 
     def via_composio():
         if not os.getenv("COMPOSIO_API_KEY"):
             return None, None
         tools, ts = _openai_tools(agent["composio_toolkits"])
-        return (tools, (lambda resp: ts.handle_tool_calls(resp))) if tools else (None, None)
+        if not tools:
+            return None, None
+
+        def call(name, args):
+            try:
+                return str(ts.execute_action(action=name, params=args))[:1500]
+            except Exception as e:
+                return f"(composio {name} failed: {e})"
+        return tools, call
 
     if backend == "mcp":
         return via_mcp()
@@ -175,9 +182,8 @@ def _get_openai_tools(agent):
         return via_n8n()
     if backend == "composio":
         return via_composio()
-
-    # auto (no explicit backend): use whatever is configured — MCP > Composio > n8n
-    if os.getenv("MCP_SERVER_URL"):
+    # auto: use whatever is configured — MCP/Pipedream > Composio > n8n
+    if os.getenv("MCP_SERVER_URL") or os.getenv("PIPEDREAM_CLIENT_ID"):
         t = via_mcp()
         if t[0]:
             return t
@@ -185,10 +191,41 @@ def _get_openai_tools(agent):
         t = via_composio()
         if t[0]:
             return t
-    t = via_n8n()
-    if t[0]:
-        return t
-    return None, None
+    return via_n8n()
+
+
+def _get_openai_tools(agent):
+    """Build the tool list + a unified handler. Built-in tools (web search, fetch/scrape)
+    are ALWAYS available — no connection needed — so agents can research, pull live data,
+    and create content out of the box. Connected apps (Gmail, GitHub…) are merged in from
+    the tools backend when configured."""
+    bt = _import_local("builtin_tools")
+    builtin_tools = list(bt.TOOLS) if bt else []
+    builtin_names = bt.NAMES if bt else set()
+
+    backend_tools, backend_call = _backend_call(agent)
+    tools = builtin_tools + list(backend_tools or [])
+    if not tools:
+        return None, None
+
+    def handle(resp):
+        out = []
+        for tc in (getattr(resp.choices[0].message, "tool_calls", None) or []):
+            name = tc.function.name
+            try:
+                args = json.loads(tc.function.arguments or "{}")
+            except Exception:
+                args = {}
+            if bt and name in builtin_names:
+                content = bt.execute(name, args)
+            elif backend_call:
+                content = backend_call(name, args)
+            else:
+                content = f"(no handler for tool '{name}')"
+            out.append({"role": "tool", "tool_call_id": tc.id, "content": str(content)})
+        return out
+
+    return tools, handle
 
 
 def _run_openai(agent, message, history, cfg):

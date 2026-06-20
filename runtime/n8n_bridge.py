@@ -56,6 +56,22 @@ def load_tools():
     return (tools or None), (wmap or None)
 
 
+def execute_one(name, args, wmap):
+    """Run a single tool by POSTing {tool, args} to its n8n webhook. Returns a result string."""
+    import requests
+    headers = {}
+    if os.getenv("N8N_AUTH_HEADER"):
+        headers["Authorization"] = os.getenv("N8N_AUTH_HEADER")
+    url = (wmap or {}).get(name)
+    if not url:
+        return f"(no n8n webhook configured for tool '{name}')"
+    try:
+        r = requests.post(url, json={"tool": name, "args": args}, headers=headers, timeout=90)
+        return r.text[:6000] if r.text else f"(n8n returned status {r.status_code})"
+    except Exception as e:
+        return f"(n8n call failed: {e})"
+
+
 def handle(resp, wmap):
     """Run the tool calls in an OpenAI-style response via n8n webhooks.
     Returns a list of tool-role messages to append to the conversation."""
