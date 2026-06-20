@@ -348,10 +348,14 @@ async function sendMsg(){
   view.scrollTop=view.scrollHeight;
 
   const apiHistory = t.messages.slice(0,-1).map(m=>({role:m.role, content:m.content}));
+  const ctrl = new AbortController();
+  const killer = setTimeout(()=>ctrl.abort(), 115000);   // never spin forever
   try{
     const r=await fetch("/chat",{method:"POST",
       headers:{"Content-Type":"application/json","X-Decagent-Password":PW},
-      body:JSON.stringify({agent:t.agent, message:apiContent, history:apiHistory.slice(-10)})});
+      body:JSON.stringify({agent:t.agent, message:apiContent, history:apiHistory.slice(-10)}),
+      signal: ctrl.signal});
+    clearTimeout(killer);
     document.getElementById("typing")?.remove();
     if(r.status===401){ busy=false; send.disabled=false; showGate(); return; }
     if(!r.ok) throw new Error("HTTP "+r.status);
@@ -364,8 +368,13 @@ async function sendMsg(){
       t.messages.push({role:"assistant", content:data.response||"(empty response)", who, em:used.em, agent:used.id, steps:data.steps||[]});
     }
   }catch(err){
+    clearTimeout(killer);
     document.getElementById("typing")?.remove();
-    t.messages.push({role:"assistant", error:{title:"Couldn't reach the server", detail:"It may be waking up (free tier sleeps ~50s) — wait a moment and resend. ("+esc(err.message)+")"}});
+    const waking = (err && err.name==="AbortError");
+    t.messages.push({role:"assistant", error:{
+      title: waking ? "Server was waking up ⏳" : "Couldn't reach the server",
+      detail: waking ? "The free server was asleep and took a moment to wake — it's awake now. Just send your message again (no need to refresh)."
+                     : "It may be waking up (free tier sleeps ~50s) — wait a moment and resend. ("+esc(err.message)+")"}});
   }
   t.updated=Date.now(); save(); renderMessages();
   busy=false; send.disabled=false; input.focus();
@@ -408,6 +417,7 @@ function initAgentSelect(){
 load();
 if(threads.length===0){ newChat(); } else { currentId=threads[0].id; }
 initAgentSelect(); renderAll(); checkAuth(); input.focus();
+fetch("/api").catch(()=>{});   // pre-warm the free-tier server so the first message responds fast
 </script>
 </body>
 </html>
