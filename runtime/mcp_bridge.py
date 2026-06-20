@@ -212,19 +212,23 @@ def load_tools():
         return _CACHE["result"]
 
     tools, router, seen = [], ToolRouter(), set()
-    try:
-        if slugs:  # Pipedream multi-app: one connection per app slug
-            for slug in slugs:
+    if slugs:  # Pipedream multi-app: one connection per app — resilient, skip any that fail
+        for slug in slugs:
+            try:
                 client = MCPClient(url, _base_headers(slug))
                 client.connect()
                 _collect(client, tools, router, seen, prefix=slug)
-        else:      # single server returns its full tool set (Zapier, etc.)
+            except Exception as e:
+                print(f"! MCP app '{slug}' failed (skipped): {e}")
+                continue
+    else:          # single server returns its full tool set (Zapier, etc.)
+        try:
             client = MCPClient(url, _base_headers())
             client.connect()
             _collect(client, tools, router, seen)
-    except Exception as e:
-        print("! MCP connect/list failed:", e)
-        return None, None
+        except Exception as e:
+            print("! MCP connect/list failed:", e)
+            return None, None
 
     if len(tools) > max_tools:
         print(f"! MCP exposed {len(tools)} tools; capping to {max_tools} "

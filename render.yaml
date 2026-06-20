@@ -40,4 +40,4 @@ services:
       - key: PIPEDREAM_PROJECT_ID
         sync: false                 # proj_xxxxx
       - key: MCP_APP_SLUGS
-        value: gmail,github,slack,google_sheets,notion   # apps exposed to the agents (edit anytime)
+        value: gmail,google_sheets,google_docs,google_calendar,github,slack,notion,airtable,twitter,linkedin   # top apps (edit anytime; bad/unconnected ones are skipped safely)
