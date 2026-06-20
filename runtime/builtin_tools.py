@@ -14,12 +14,27 @@ import os, re
 
 def _web_search(query, max_results=6):
     import requests
+    # Preferred: Tavily — reliable from cloud servers, free tier (set TAVILY_API_KEY)
+    tav = os.getenv("TAVILY_API_KEY")
+    if tav:
+        try:
+            r = requests.post("https://api.tavily.com/search",
+                              json={"api_key": tav, "query": query, "max_results": max_results},
+                              timeout=15)
+            res = r.json().get("results", [])
+            items = [f"- {x.get('title','')}\n  {x.get('url','')}\n  {(x.get('content') or '')[:160]}"
+                     for x in res]
+            if items:
+                return "\n".join(items)
+        except Exception:
+            pass
+    # Fallback: keyless DuckDuckGo (can be rate-limited from datacenter IPs) — fast-fail
     headers = {"User-Agent": "Mozilla/5.0 (compatible; Decagent/1.0)"}
     for ep in ("https://html.duckduckgo.com/html/", "https://lite.duckduckgo.com/lite/"):
         try:
-            r = requests.post(ep, data={"q": query}, headers=headers, timeout=12)
+            r = requests.post(ep, data={"q": query}, headers=headers, timeout=8)
         except Exception:
-            continue   # try the next endpoint, never hang
+            continue
         items = []
         for m in re.finditer(r'(?:result__a|result-link)[^>]*href="([^"]+)"[^>]*>(.*?)</a>', r.text, re.S):
             url = m.group(1)
@@ -30,7 +45,7 @@ def _web_search(query, max_results=6):
                 break
         if items:
             return "\n".join(items)
-    return "(no results found)"
+    return "(no results — for reliable cloud search, set a free TAVILY_API_KEY)"
 
 
 def _fetch_url(url, max_chars=6000):

@@ -240,8 +240,14 @@ def _run_openai(agent, message, history, cfg):
     messages += _history_msgs(history)
     messages.append({"role": "user", "content": message})
 
+    import time
+    deadline = time.time() + float(os.getenv("DECAGENT_BUDGET_SEC", "90"))
     steps, final_text = [], ""
     for _ in range(MAX_TURNS):
+        if time.time() > deadline:   # never hang — return whatever we have
+            if not final_text:
+                final_text = "(That took too long — please try again or simplify the request.)"
+            break
         kwargs = {"model": cfg["model"], "messages": messages}
         if tools:
             kwargs["tools"] = tools
