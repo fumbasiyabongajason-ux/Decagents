@@ -14,28 +14,30 @@ import os, re
 
 def _web_search(query, max_results=6):
     import requests
-    r = requests.post(
-        "https://html.duckduckgo.com/html/",
-        data={"q": query},
-        headers={"User-Agent": "Mozilla/5.0 (compatible; Decagent/1.0)"},
-        timeout=30,
-    )
-    items = []
-    for m in re.finditer(r'class="result__a"[^>]*href="([^"]+)"[^>]*>(.*?)</a>', r.text, re.S):
-        url = m.group(1)
-        title = re.sub(r"<[^>]+>", "", m.group(2)).strip()
-        if title:
-            items.append(f"- {title}\n  {url}")
-        if len(items) >= max_results:
-            break
-    return "\n".join(items) if items else "(no results found)"
+    headers = {"User-Agent": "Mozilla/5.0 (compatible; Decagent/1.0)"}
+    for ep in ("https://html.duckduckgo.com/html/", "https://lite.duckduckgo.com/lite/"):
+        try:
+            r = requests.post(ep, data={"q": query}, headers=headers, timeout=12)
+        except Exception:
+            continue   # try the next endpoint, never hang
+        items = []
+        for m in re.finditer(r'(?:result__a|result-link)[^>]*href="([^"]+)"[^>]*>(.*?)</a>', r.text, re.S):
+            url = m.group(1)
+            title = re.sub(r"<[^>]+>", "", m.group(2)).strip()
+            if title:
+                items.append(f"- {title}\n  {url}")
+            if len(items) >= max_results:
+                break
+        if items:
+            return "\n".join(items)
+    return "(no results found)"
 
 
 def _fetch_url(url, max_chars=6000):
     import requests
     if not re.match(r"^https?://", url or ""):
         url = "https://" + (url or "")
-    r = requests.get(url, headers={"User-Agent": "Mozilla/5.0 (compatible; Decagent/1.0)"}, timeout=30)
+    r = requests.get(url, headers={"User-Agent": "Mozilla/5.0 (compatible; Decagent/1.0)"}, timeout=15)
     html = re.sub(r"<(script|style)[\s\S]*?</\1>", " ", r.text, flags=re.I)
     text = re.sub(r"<[^>]+>", " ", html)
     text = re.sub(r"\s+", " ", text).strip()
