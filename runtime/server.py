@@ -40,7 +40,7 @@ APP_HTML = ROOT / "app" / "index.html"  # the Console chat UI
 
 # Optional shared password. If set (recommended for any public/cloud URL), the
 # Console requires it before chatting — protects your API spend + connected tools.
-ACCESS_PASSWORD = (os.getenv("DECAGENT_PASSWORD") or "change-me").strip()
+ACCESS_PASSWORD = (os.getenv("DECAGENT_PASSWORD") or "Jason@Agentlowlife").strip()
 app = FastAPI(title="Decagent API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
