@@ -233,7 +233,7 @@ def _run_openai(agent, message, history, cfg):
         from openai import OpenAI
     except ImportError:
         return "The OpenAI client isn't installed. Run:  pip install openai", []
-    client = OpenAI(base_url=cfg["base_url"], api_key=cfg["key"])
+    client = OpenAI(base_url=cfg["base_url"], api_key=cfg["key"], timeout=30, max_retries=1)
     tools, handle = _get_openai_tools(agent)
 
     messages = [{"role": "system", "content": agent["system_prompt"]}]
@@ -288,7 +288,7 @@ def _run_anthropic(agent, message, history, cfg):
         from anthropic import Anthropic
     except ImportError:
         return "The Anthropic client isn't installed. Run:  pip install anthropic", []
-    client = Anthropic(api_key=cfg["key"])
+    client = Anthropic(api_key=cfg["key"], timeout=30, max_retries=1)
     tools, ts = _anthropic_tools(agent["composio_toolkits"])
 
     messages = _history_msgs(history)
@@ -349,7 +349,7 @@ def _complete_text(system: str, user: str, max_tokens: int = 16) -> str:
     cfg = provider_config()
     if cfg["kind"] == "openai":
         from openai import OpenAI
-        c = OpenAI(base_url=cfg["base_url"], api_key=cfg["key"])
+        c = OpenAI(base_url=cfg["base_url"], api_key=cfg["key"], timeout=20, max_retries=1)
         r = c.chat.completions.create(model=cfg["model"], max_tokens=max_tokens,
             messages=[{"role": "system", "content": system}, {"role": "user", "content": user}])
         return r.choices[0].message.content or ""

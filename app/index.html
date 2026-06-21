@@ -220,7 +220,7 @@ function deleteThread(id,ev){
   save();
   if(!currentId) newChat(); else renderAll();
 }
-function setAgent(id){ const t=cur(); if(t){ t.agent=id; save(); } updateBar(); if(t&&t.messages.length===0) renderMessages(); }
+function setAgent(id){ const t=cur(); if(t){ t.agent=id; save(); } updateBar(); if(t && !busy && t.messages.length===0) renderMessages(); }
 
 // ---------- rendering ----------
 function group(t){

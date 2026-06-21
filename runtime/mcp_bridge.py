@@ -208,8 +208,8 @@ def load_tools():
     key = "|".join([url, os.getenv("MCP_APP_SLUGS", ""), os.getenv("MCP_HEADERS", ""),
                     os.getenv("PIPEDREAM_PROJECT_ID", ""), os.getenv("PIPEDREAM_EXTERNAL_USER_ID", "")])
     now = time.time()
-    if _CACHE["key"] == key and (now - _CACHE["at"]) < ttl and _CACHE["result"][0]:
-        return _CACHE["result"]
+    if _CACHE["key"] == key and (now - _CACHE["at"]) < ttl:
+        return _CACHE["result"]   # cache hits even when empty — don't re-handshake every chat
 
     tools, router, seen = [], ToolRouter(), set()
     if slugs:  # Pipedream multi-app: connect to every app IN PARALLEL (fast even with many); skip failures
