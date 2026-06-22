@@ -40,4 +40,6 @@ services:
       - key: PIPEDREAM_PROJECT_ID
         sync: false                 # proj_xxxxx
       - key: MCP_APP_SLUGS
-        value: gmail,google_sheets,google_docs,google_calendar,github,slack,notion,airtable,twitter,linkedin   # top apps (edit anytime; bad/unconnected ones are skipped safely)
+        value: gmail,google_sheets,google_docs,google_calendar,github,slack,notion,airtable,twitter,linkedin,instagram,facebook_pages,reddit,youtube,discord,wordpress,telegram_bot_api   # apps exposed to every agent (edit anytime; bad/unconnected ones are skipped safely). ANY of Pipedream's ~2,700 apps works — add its slug here, then connect it at /connect.
+      - key: MCP_MAX_TOOLS
+        value: "96"                 # max app tools shown to the model at once (LLMs can't pick from thousands — keep focused; raise/lower to taste)

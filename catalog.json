@@ -1,12 +1,12 @@
 {
   "product": "Decagent",
   "version": "0.1.0",
-  "agent_count": 10,
+  "agent_count": 12,
   "agents": [
     {
       "id": "builder",
       "name": "Builder",
-      "emoji": "\ud83d\udee0\ufe0f",
+      "emoji": "🛠️",
       "tagline": "Describe an app in plain English. Get working code.",
       "tier": "Pro",
       "price": "$79/mo",
@@ -20,8 +20,8 @@
     {
       "id": "webwright",
       "name": "Webwright",
-      "emoji": "\ud83c\udfa8",
-      "tagline": "Edit, redesign, and build websites \u2014 just say what you want.",
+      "emoji": "🎨",
+      "tagline": "Edit, redesign, and build websites — just say what you want.",
       "tier": "Pro",
       "price": "$79/mo",
       "toolkits": [
@@ -34,8 +34,8 @@
     {
       "id": "octopilot",
       "name": "Octopilot",
-      "emoji": "\ud83d\udc19",
-      "tagline": "Your GitHub co-pilot \u2014 repos, branches, PRs, reviews.",
+      "emoji": "🐙",
+      "tagline": "Your GitHub co-pilot — repos, branches, PRs, reviews.",
       "tier": "Agency",
       "price": "$199/mo",
       "toolkits": [
@@ -46,7 +46,7 @@
     {
       "id": "harvest",
       "name": "Harvest",
-      "emoji": "\ud83c\udf3e",
+      "emoji": "🌾",
       "tagline": "Turn any website into clean, structured data.",
       "tier": "Pro",
       "price": "$79/mo",
@@ -60,7 +60,7 @@
     {
       "id": "prospector",
       "name": "Prospector",
-      "emoji": "\ud83d\udd0d",
+      "emoji": "🔍",
       "tagline": "Find your next 100 customers.",
       "tier": "Agency",
       "price": "$199/mo",
@@ -75,7 +75,7 @@
     {
       "id": "outreach",
       "name": "Outreach",
-      "emoji": "\u2709\ufe0f",
+      "emoji": "✉️",
       "tagline": "Write emails that actually get replies.",
       "tier": "Starter",
       "price": "$29/mo",
@@ -88,8 +88,8 @@
     {
       "id": "scribe",
       "name": "Scribe",
-      "emoji": "\u270d\ufe0f",
-      "tagline": "Content on demand \u2014 blogs, social, SEO.",
+      "emoji": "✍️",
+      "tagline": "Content on demand — blogs, social, SEO.",
       "tier": "Starter",
       "price": "$29/mo",
       "toolkits": [
@@ -102,7 +102,7 @@
     {
       "id": "scout",
       "name": "Scout",
-      "emoji": "\ud83e\udded",
+      "emoji": "🧭",
       "tagline": "Deep research, summarized for decisions.",
       "tier": "Starter",
       "price": "$29/mo",
@@ -116,7 +116,7 @@
     {
       "id": "broadcast",
       "name": "Broadcast",
-      "emoji": "\ud83d\udce1",
+      "emoji": "📡",
       "tagline": "Run all your social channels from one place.",
       "tier": "Agency",
       "price": "$199/mo",
@@ -130,7 +130,7 @@
     {
       "id": "concierge",
       "name": "Concierge",
-      "emoji": "\ud83d\udece\ufe0f",
+      "emoji": "🛎️",
       "tagline": "Never miss a customer message again.",
       "tier": "Starter",
       "price": "$29/mo",
@@ -140,6 +140,34 @@
         "googlecalendar"
       ],
       "path": "agents/10-concierge"
+    },
+    {
+      "id": "patch",
+      "name": "Patch",
+      "emoji": "🧰",
+      "tagline": "Your on-call IT specialist — fix it, secure it, set it up.",
+      "tier": "Pro",
+      "price": "$79/mo",
+      "toolkits": [
+        "github",
+        "slack"
+      ],
+      "path": "agents/11-patch"
+    },
+    {
+      "id": "buzz",
+      "name": "Buzz",
+      "emoji": "💬",
+      "tagline": "Grow your audience by engaging — replies, comments, likes, follows.",
+      "tier": "Agency",
+      "price": "$199/mo",
+      "toolkits": [
+        "twitter",
+        "instagram",
+        "linkedin",
+        "reddit"
+      ],
+      "path": "agents/12-buzz"
     }
   ]
 }

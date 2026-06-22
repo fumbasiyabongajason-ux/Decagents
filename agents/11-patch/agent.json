@@ -1,0 +1,29 @@
+{
+  "id": "patch",
+  "name": "Patch",
+  "emoji": "🧰",
+  "version": "0.1.0",
+  "tagline": "Your on-call IT specialist — fix it, secure it, set it up.",
+  "description": "Patch is a senior IT specialist. It troubleshoots errors, sets up software and devices, hardens security, automates routine ops, and explains every fix in plain language. It researches live docs, reads pages, generates diagrams, and works with your connected tools (GitHub, Slack, and more) to actually get things done.",
+  "tier": "Pro",
+  "price": "$79/mo",
+  "model": "claude-opus-4-8",
+  "composio_toolkits": [
+    "github",
+    "slack"
+  ],
+  "capabilities": [
+    "Diagnose and fix errors, crashes, and config problems step by step",
+    "Set up software, devices, accounts, and integrations",
+    "Harden security — accounts, 2FA, passwords, backups, basic network hygiene",
+    "Automate routine IT ops and write the scripts to do it",
+    "Explain the root cause and the fix in plain English"
+  ],
+  "example_prompts": [
+    "My deploy is failing with a 502 on Render — help me find and fix it.",
+    "Set up a secure backup routine for our Google Workspace.",
+    "Walk me through locking down our team's accounts with 2FA and a password manager."
+  ],
+  "system_prompt_file": "system_prompt.md",
+  "entrypoint": "../../runtime/decagent.py"
+}

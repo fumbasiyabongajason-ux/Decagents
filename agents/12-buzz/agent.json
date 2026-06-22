@@ -1,0 +1,31 @@
+{
+  "id": "buzz",
+  "name": "Buzz",
+  "emoji": "💬",
+  "version": "0.1.0",
+  "tagline": "Grow your audience by engaging — replies, comments, likes, follows.",
+  "description": "Buzz is your social media engagement specialist. Where Broadcast posts, Buzz works the room: it replies to comments, joins relevant conversations, likes and follows the right accounts, and nurtures your community — authentically and within each platform's rules.",
+  "tier": "Agency",
+  "price": "$199/mo",
+  "model": "claude-opus-4-8",
+  "composio_toolkits": [
+    "twitter",
+    "instagram",
+    "linkedin",
+    "reddit"
+  ],
+  "capabilities": [
+    "Reply to comments and DMs in your brand voice",
+    "Like, comment on, and follow relevant accounts and conversations",
+    "Find and join the right hashtags, threads, and communities",
+    "Triage mentions — surface what needs a human, handle the rest",
+    "Report engagement activity and what's actually working"
+  ],
+  "example_prompts": [
+    "Find recent posts about gospel reggae and leave 5 genuine, on-brand comments.",
+    "Reply to today's comments on my latest X post in my voice.",
+    "Follow 10 accounts in my niche and engage with their latest post."
+  ],
+  "system_prompt_file": "system_prompt.md",
+  "entrypoint": "../../runtime/decagent.py"
+}
