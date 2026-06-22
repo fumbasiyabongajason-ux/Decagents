@@ -59,6 +59,24 @@ def _fetch_url(url, max_chars=6000):
     return text[:max_chars] or "(no readable text on page)"
 
 
+def _generate_image(prompt, width=1024, height=1024):
+    """Text-to-image, keyless & free via Pollinations. Returns a markdown image
+    that the agent should include verbatim so the Console renders it inline."""
+    import urllib.parse
+    p = (prompt or "").strip()
+    if not p:
+        return "(no prompt given for image)"
+    try:
+        width = max(256, min(int(width), 1536))
+        height = max(256, min(int(height), 1536))
+    except Exception:
+        width, height = 1024, 1024
+    q = urllib.parse.quote(p, safe="")
+    url = (f"https://image.pollinations.ai/prompt/{q}"
+           f"?width={width}&height={height}&nologo=true")
+    return f"![{p}]({url})\n\n[Open image in new tab]({url})"
+
+
 TOOLS = [
     {"type": "function", "function": {
         "name": "web_search",
@@ -75,8 +93,20 @@ TOOLS = [
         "parameters": {"type": "object",
                        "properties": {"url": {"type": "string", "description": "the page URL"}},
                        "required": ["url"]}}},
+    {"type": "function", "function": {
+        "name": "generate_image",
+        "description": ("Generate an image from a text prompt (free, no key). Use when the user "
+                        "asks for a picture, logo, artwork, cover, thumbnail, poster, or any visual. "
+                        "Returns a markdown image tag — you MUST include it verbatim in your reply "
+                        "so the user actually sees the image."),
+        "parameters": {"type": "object",
+                       "properties": {
+                           "prompt": {"type": "string", "description": "detailed description of the image to create"},
+                           "width": {"type": "integer", "description": "optional width in px (256-1536, default 1024)"},
+                           "height": {"type": "integer", "description": "optional height in px (256-1536, default 1024)"}},
+                       "required": ["prompt"]}}},
 ]
-NAMES = {"web_search", "fetch_url"}
+NAMES = {"web_search", "fetch_url", "generate_image"}
 
 
 def execute(name, args):
@@ -85,6 +115,9 @@ def execute(name, args):
             return _web_search(args.get("query", ""))
         if name == "fetch_url":
             return _fetch_url(args.get("url", ""))
+        if name == "generate_image":
+            return _generate_image(args.get("prompt", ""),
+                                   args.get("width", 1024), args.get("height", 1024))
     except Exception as e:
         return f"({name} failed: {e})"
     return f"(unknown built-in tool '{name}')"
