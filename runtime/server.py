@@ -26,7 +26,7 @@ NOTE: This is the open scaffold. Before going live you must add (see billing/):
 The middleware stub `require_active_subscription` shows where that goes.
 """
 from __future__ import annotations
-import json, os, pathlib
+import concurrent.futures, json, os, pathlib
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -45,6 +45,18 @@ app = FastAPI(title="Decagent API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
 )
+
+# Hard wall-clock ceiling for a single agent run. A slow web search or a stuck
+# connected-app (Pipedream/MCP) call can otherwise hang the request forever; the
+# in-loop budget only checks between turns, so one slow turn can overshoot badly.
+# This guarantees /chat returns BEFORE the Console's 115s client abort.
+HARD_TIMEOUT_SEC = float(os.getenv("DECAGENT_HARD_TIMEOUT_SEC", "100"))
+_EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=8)
+
+
+def _run_with_deadline(fn, *args, **kwargs):
+    """Run fn in a worker thread; abandon it if it exceeds HARD_TIMEOUT_SEC."""
+    return _EXECUTOR.submit(fn, *args, **kwargs).result(timeout=HARD_TIMEOUT_SEC)
 
 
 class RunRequest(BaseModel):
@@ -94,7 +106,9 @@ def agent_detail(agent_id: str):
 def run(req: RunRequest, authorization: Optional[str] = Header(default=None)):
     user = require_active_subscription(authorization, req.agent)
     try:
-        text = decagent.run(req.agent, req.message)
+        text = _run_with_deadline(decagent.run, req.agent, req.message)
+    except concurrent.futures.TimeoutError:
+        raise HTTPException(504, f"agent timed out after {int(HARD_TIMEOUT_SEC)}s")
     except SystemExit as e:
         raise HTTPException(400, str(e))
     return {"agent": req.agent, "user": user, "response": text}
@@ -186,10 +200,19 @@ def chat(req: ChatRequest, x_decagent_password: Optional[str] = Header(default=N
     if ACCESS_PASSWORD and (x_decagent_password or "") != ACCESS_PASSWORD:
         raise HTTPException(401, "unauthorized")
     agent_id = req.agent or "auto"
+
+    def _work():
+        aid = decagent.route(req.message) if agent_id == "auto" else agent_id
+        text, steps = decagent.run_traced(aid, req.message, history=req.history[-10:])
+        return aid, text, steps
+
     try:
-        if agent_id == "auto":
-            agent_id = decagent.route(req.message)
-        text, steps = decagent.run_traced(agent_id, req.message, history=req.history[-10:])
+        agent_id, text, steps = _run_with_deadline(_work)
         return {"agent": agent_id, "response": text, "steps": steps}
+    except concurrent.futures.TimeoutError:
+        return {"agent": agent_id, "response": None,
+                "error": (f"The agent took longer than {int(HARD_TIMEOUT_SEC)}s and was stopped. "
+                          "This is usually a slow web search or a stuck connected-app call — try "
+                          "again or simplify. If searches always stall, set a free TAVILY_API_KEY.")}
     except (Exception, SystemExit) as e:  # missing keys/deps, bad id, API errors — report cleanly
         return {"agent": agent_id, "response": None, "error": str(e) or "agent runtime error"}

@@ -34,7 +34,7 @@ except Exception:
 
 ROOT = pathlib.Path(__file__).resolve().parent.parent
 AGENTS_DIR = ROOT / "agents"
-MAX_TURNS = int(os.getenv("DECAGENT_MAX_TURNS", "12"))
+MAX_TURNS = int(os.getenv("DECAGENT_MAX_TURNS", "6"))
 
 
 # --------------------------------------------------------------------------- #
@@ -241,7 +241,7 @@ def _run_openai(agent, message, history, cfg):
     messages.append({"role": "user", "content": message})
 
     import time
-    deadline = time.time() + float(os.getenv("DECAGENT_BUDGET_SEC", "90"))
+    deadline = time.time() + float(os.getenv("DECAGENT_BUDGET_SEC", "70"))
     steps, final_text = [], ""
     for _ in range(MAX_TURNS):
         if time.time() > deadline:   # never hang — return whatever we have
