@@ -128,6 +128,42 @@ def api_info():
             "chat": "POST /chat", "run": "POST /run", "connect": "GET /connect"}
 
 
+@app.get("/debug/tavily")
+def debug_tavily(pw: Optional[str] = None):
+    """TEMP diagnostic — confirms whether the web-search key is visible to the
+    running app and whether a live Tavily call works. NEVER returns the key value.
+    Gated by the same password as /connect. Safe to remove after debugging."""
+    if ACCESS_PASSWORD and (pw or "") != ACCESS_PASSWORD:
+        raise HTTPException(401, "add ?pw=YOUR_PASSWORD")
+    key = os.getenv("TAVILY_API_KEY") or ""
+    # NAMES only (never values) of env vars that look related — catches a mis-named var
+    related = sorted(n for n in os.environ
+                     if any(s in n.upper() for s in ("TAV", "DEV", "SEARCH")))
+    out = {
+        "tavily_key_detected": bool(key),
+        "tavily_key_length": len(key),
+        "tavily_key_prefix_ok": key.startswith("tvly-"),
+        "related_env_var_names": related,
+        "live_tavily_call": {"attempted": False, "status_code": None,
+                             "results_count": None, "error": None},
+    }
+    if key:
+        import requests
+        out["live_tavily_call"]["attempted"] = True
+        try:
+            r = requests.post("https://api.tavily.com/search",
+                              json={"api_key": key, "query": "ping", "max_results": 1},
+                              timeout=15)
+            out["live_tavily_call"]["status_code"] = r.status_code
+            try:
+                out["live_tavily_call"]["results_count"] = len(r.json().get("results", []))
+            except Exception:
+                out["live_tavily_call"]["results_count"] = None
+        except Exception as e:
+            out["live_tavily_call"]["error"] = str(e)[:200]
+    return out
+
+
 @app.get("/connect")
 def connect(app: Optional[str] = None, pw: Optional[str] = None):
     """One-click helper to connect your Pipedream app accounts (no curl needed).
