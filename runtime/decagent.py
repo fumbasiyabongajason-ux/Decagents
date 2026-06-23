@@ -337,12 +337,32 @@ def _run_openai(agent, message, history, cfg):
     # Models frequently call generate_image but forget to paste the returned image into
     # their reply ("Here's your poster!" with no link). Guarantee it reaches the user by
     # appending any generated image the tool actually produced.
-    import re as _re
+    produced_image = "image.pollinations.ai" in (final_text or "")
     for s in steps:
         if s.get("type") == "tool_result" and s.get("name") == "generate_image":
-            mt = _re.search(r"!\[[^\]]*\]\(https://image\.pollinations\.ai/[^)]+\)", s.get("content") or "")
+            mt = re.search(r"!\[[^\]]*\]\(https://image\.pollinations\.ai/[^)]+\)", s.get("content") or "")
             if mt and mt.group(0) not in (final_text or ""):
                 final_text = (final_text or "").rstrip() + "\n\n" + mt.group(0)
+                produced_image = True
+
+    # Safety net: if the user clearly asked for an image but the model never actually made one
+    # (some models just say "I'll create an image" without calling the tool), generate it
+    # ourselves so an image request ALWAYS returns an image.
+    asked_image = re.search(
+        r"\b(make|create|generate|draw|design|render|paint|produce|need|want|give\s+me|show\s+me)\b"
+        r"[^.?!\n]{0,40}\b(image|picture|photo|logo|poster|cover|thumbnail|artwork|drawing|"
+        r"illustration|wallpaper|banner|graphic|mockup|avatar|icon)\b", message or "", re.I)
+    if asked_image and not produced_image:
+        btmod = _import_local("builtin_tools")
+        if btmod:
+            try:
+                img = btmod.execute("generate_image", {"prompt": (message or "").strip()[:300]})
+                mt2 = re.search(r"!\[[^\]]*\]\(https://image\.pollinations\.ai/[^)]+\)", img or "")
+                if mt2:
+                    steps.append({"type": "tool_result", "name": "generate_image", "content": (img or "")[:1500]})
+                    final_text = (final_text or "").rstrip() + "\n\n" + mt2.group(0)
+            except Exception:
+                pass
     return (final_text or "").strip(), steps
 
 
