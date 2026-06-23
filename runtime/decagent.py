@@ -240,7 +240,18 @@ def _run_openai(agent, message, history, cfg):
     client = OpenAI(base_url=cfg["base_url"], api_key=cfg["key"], timeout=30, max_retries=1)
     tools, handle, builtin_tools = _get_openai_tools(agent)
 
-    messages = [{"role": "system", "content": agent["system_prompt"]}]
+    sys_prompt = agent["system_prompt"]
+    if tools:
+        sys_prompt += (
+            "\n\n# Using your tools (do NOT pretend)\n"
+            "You have real, working tools. When the user wants a picture, image, logo, cover, "
+            "poster, thumbnail, or any visual, you MUST call the generate_image tool and include "
+            "the EXACT markdown it returns (the ![alt](url) link) verbatim in your reply. Never "
+            "describe an image or say 'open the link' unless a generate_image call actually returned "
+            "one. For current facts or news, call web_search. Never fabricate or claim tool results "
+            "you did not get."
+        )
+    messages = [{"role": "system", "content": sys_prompt}]
     messages += _history_msgs(history)
     messages.append({"role": "user", "content": message})
 
