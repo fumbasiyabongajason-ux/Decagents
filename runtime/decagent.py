@@ -308,6 +308,16 @@ def _run_openai(agent, message, history, cfg):
             continue
         final_text = m.content or ""
         break
+
+    # Models frequently call generate_image but forget to paste the returned image into
+    # their reply ("Here's your poster!" with no link). Guarantee it reaches the user by
+    # appending any generated image the tool actually produced.
+    import re as _re
+    for s in steps:
+        if s.get("type") == "tool_result" and s.get("name") == "generate_image":
+            mt = _re.search(r"!\[[^\]]*\]\(https://image\.pollinations\.ai/[^)]+\)", s.get("content") or "")
+            if mt and mt.group(0) not in (final_text or ""):
+                final_text = (final_text or "").rstrip() + "\n\n" + mt.group(0)
     return (final_text or "").strip(), steps
 
 
