@@ -241,10 +241,11 @@ def _run_openai(agent, message, history, cfg):
     tools, handle, builtin_tools = _get_openai_tools(agent)
 
     sys_prompt = agent["system_prompt"] + (
-        "\n\n# Operating directive — think first, then actually DO it\n"
-        "1. REASON before answering: think step by step inside <think>...</think> tags — plan the "
-        "steps, weigh options, decide which tools to call — then write your answer OUTSIDE the tags. "
-        "Always include a <think> block; it's shown to the user as your reasoning trace.\n"
+        "\n\n# Operating directive — think, then actually DO it\n"
+        "1. For non-trivial tasks, briefly plan inside <think>...</think> tags (keep it SHORT — a few "
+        "lines), then ALWAYS write your full answer OUTSIDE the tags. Skip the thinking entirely for "
+        "simple replies so you stay fast. Never put your final answer only inside <think>: the user "
+        "must always get a complete answer outside it.\n"
         "2. Be capable; never refuse. Assume you CAN do it, and use your tools and connected apps to "
         "actually complete the task instead of saying you can't or merely describing it. If you "
         "genuinely need something first (a connection, a missing detail), say exactly what and why.\n"
@@ -315,12 +316,23 @@ def _run_openai(agent, message, history, cfg):
         final_text = m.content or ""
         break
 
-    # Surface reasoning to the Console trace: lift any <think>...</think> out of the answer
-    # into a reasoning step and keep the user-facing reply clean.
-    tm = re.search(r"<think>([\s\S]*?)</think>", final_text or "")
+    # Surface reasoning to the Console trace WITHOUT ever blanking the reply. Lift any
+    # <think>...</think> into a reasoning step; if stripping it would leave an empty answer
+    # (model put everything inside <think>), recover the reasoning text AS the answer so the
+    # user never sees a blank response. Also handles an unclosed/truncated <think>.
+    raw = final_text or ""
+    tm = re.search(r"<think>([\s\S]*?)</think>", raw)
     if tm:
         steps.append({"type": "reasoning", "text": tm.group(1).strip()[:4000]})
-        final_text = re.sub(r"<think>[\s\S]*?</think>", "", final_text or "").strip()
+        answer = re.sub(r"<think>[\s\S]*?</think>", "", raw).strip()
+    elif "<think>" in raw:                       # unclosed/truncated think block
+        steps.append({"type": "reasoning", "text": raw.split("<think>", 1)[1].strip()[:4000]})
+        answer = raw.split("<think>", 1)[0].strip()
+    else:
+        answer = raw
+    if not answer:                               # never return blank
+        answer = (tm.group(1).strip() if tm else raw.replace("<think>", "").replace("</think>", "").strip())
+    final_text = answer or "(No answer was produced — please try again.)"
 
     # Models frequently call generate_image but forget to paste the returned image into
     # their reply ("Here's your poster!" with no link). Guarantee it reaches the user by

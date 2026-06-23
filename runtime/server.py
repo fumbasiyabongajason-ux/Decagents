@@ -26,7 +26,7 @@ NOTE: This is the open scaffold. Before going live you must add (see billing/):
 The middleware stub `require_active_subscription` shows where that goes.
 """
 from __future__ import annotations
-import concurrent.futures, json, os, pathlib
+import concurrent.futures, hmac, json, os, pathlib
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
@@ -98,6 +98,8 @@ def agent_detail(agent_id: str):
         a = decagent.load_agent(agent_id)
     except SystemExit:
         raise HTTPException(404, f"No agent '{agent_id}'")
+    except Exception as e:
+        raise HTTPException(500, f"could not load agent '{agent_id}': {e}")
     a.pop("_dir", None)
     return a
 
@@ -111,6 +113,8 @@ def run(req: RunRequest, authorization: Optional[str] = Header(default=None)):
         raise HTTPException(504, f"agent timed out after {int(HARD_TIMEOUT_SEC)}s")
     except SystemExit as e:
         raise HTTPException(400, str(e))
+    except Exception as e:
+        raise HTTPException(500, f"agent error: {e}")
     return {"agent": req.agent, "user": user, "response": text}
 
 
@@ -133,7 +137,7 @@ def connect(app: Optional[str] = None, pw: Optional[str] = None):
     """One-click helper to connect your Pipedream app accounts (no curl needed).
     Visit /connect?pw=YOUR_PASSWORD to see a button per app in MCP_APP_SLUGS,
     or /connect?app=gmail&pw=... to jump straight to authorizing one app."""
-    if ACCESS_PASSWORD and (pw or "") != ACCESS_PASSWORD:
+    if ACCESS_PASSWORD and not hmac.compare_digest(pw or "", ACCESS_PASSWORD):
         return HTMLResponse("<h3>Add <code>?pw=YOUR_PASSWORD</code> to the URL.</h3>", status_code=401)
     cid = os.getenv("PIPEDREAM_CLIENT_ID")
     sec = os.getenv("PIPEDREAM_CLIENT_SECRET")
@@ -190,14 +194,14 @@ def auth_status():
 @app.post("/auth")
 def auth_check(req: AuthRequest):
     """Verify a password attempt."""
-    return {"ok": (not ACCESS_PASSWORD) or req.password == ACCESS_PASSWORD}
+    return {"ok": (not ACCESS_PASSWORD) or hmac.compare_digest(req.password or "", ACCESS_PASSWORD)}
 
 
 @app.post("/chat")
 def chat(req: ChatRequest, x_decagent_password: Optional[str] = Header(default=None)):
     """Console chat endpoint. agent='auto' routes to the best specialist,
     then runs it with the conversation history."""
-    if ACCESS_PASSWORD and (x_decagent_password or "") != ACCESS_PASSWORD:
+    if ACCESS_PASSWORD and not hmac.compare_digest(x_decagent_password or "", ACCESS_PASSWORD):
         raise HTTPException(401, "unauthorized")
     agent_id = req.agent or "auto"
 

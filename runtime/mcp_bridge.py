@@ -38,10 +38,14 @@ def _pipedream_token(client_id, client_secret):
                       json={"grant_type": "client_credentials",
                             "client_id": client_id, "client_secret": client_secret},
                       timeout=30)
+    r.raise_for_status()
     d = r.json()
-    _PD_TOKEN["value"] = d.get("access_token")
+    tok = d.get("access_token")
+    if not tok:
+        raise ValueError("Pipedream did not return an access_token")
+    _PD_TOKEN["value"] = tok
     _PD_TOKEN["exp"] = now + int(d.get("expires_in", 3600))
-    return _PD_TOKEN["value"]
+    return tok
 
 
 def _base_headers(app_slug=None):

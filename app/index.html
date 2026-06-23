@@ -202,7 +202,7 @@ let PW = localStorage.getItem("japw") || "";   // access password
 
 // ---------- persistence ----------
 function load(){ try{ threads = JSON.parse(localStorage.getItem("dg_threads")||"[]"); }catch(e){ threads=[]; } }
-function save(){ localStorage.setItem("dg_threads", JSON.stringify(threads.slice(0,200))); }
+function save(){ try{ localStorage.setItem("dg_threads", JSON.stringify(threads.slice(0,200))); }catch(e){ try{ threads=threads.slice(0,20); localStorage.setItem("dg_threads", JSON.stringify(threads)); }catch(_){ } } }
 function cur(){ return threads.find(t=>t.id===currentId); }
 function uid(){ return Date.now().toString(36)+Math.random().toString(36).slice(2,6); }
 
@@ -279,8 +279,8 @@ function md(t){
   t=t.replace(/```([\s\S]*?)```/g,(m,c)=>`<pre><code>${c.replace(/^\n/,"")}</code></pre>`);
   t=t.replace(/`([^`]+)`/g,"<code>$1</code>");
   t=t.replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>");
-  t=t.replace(/!\[([^\]]*)\]\((https?:[^)\s]+)\)/g,'<img src="$2" alt="$1" loading="lazy" style="max-width:100%;border-radius:12px;margin:8px 0;display:block">');
-  t=t.replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g,'<a href="$2" target="_blank" rel="noopener noreferrer">$1</a>');
+  t=t.replace(/!\[([^\]]*)\]\((https?:[^)\s]+)\)/g,(m,a,u)=>`<img src="${u.replace(/"/g,"&quot;")}" alt="${a.replace(/"/g,"&quot;")}" loading="lazy" style="max-width:100%;border-radius:12px;margin:8px 0;display:block">`);
+  t=t.replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g,(m,txt,u)=>`<a href="${u.replace(/"/g,"&quot;")}" target="_blank" rel="noopener noreferrer">${txt}</a>`);
   t=t.replace(/^### (.*)$/gm,"<h3>$1</h3>");
   t=t.replace(/^(?:- |\* )(.*)$/gm,"<li>$1</li>").replace(/^\d+\. (.*)$/gm,"<li>$1</li>");
   t=t.replace(/(<li>[\s\S]*?<\/li>)/g,m=>`<ul>${m}</ul>`).replace(/<\/ul>\s*<ul>/g,"");

@@ -36,7 +36,7 @@ def _web_search(query, max_results=6):
         except Exception:
             continue
         items = []
-        for m in re.finditer(r'(?:result__a|result-link)[^>]*href="([^"]+)"[^>]*>(.*?)</a>', r.text, re.S):
+        for m in re.finditer(r'(?:result__a|result-link)[^>]*href="([^"]+)"[^>]*>([^<]{0,300})</a>', r.text):
             url = m.group(1)
             title = re.sub(r"<[^>]+>", "", m.group(2)).strip()
             if title:
@@ -49,11 +49,39 @@ def _web_search(query, max_results=6):
 
 
 def _fetch_url(url, max_chars=6000):
-    import requests
+    import requests, ipaddress, socket
+    from urllib.parse import urlparse
     if not re.match(r"^https?://", url or ""):
         url = "https://" + (url or "")
-    r = requests.get(url, headers={"User-Agent": "Mozilla/5.0 (compatible; Decagent/1.0)"}, timeout=15)
-    html = re.sub(r"<(script|style)[\s\S]*?</\1>", " ", r.text, flags=re.I)
+    # SSRF guard: only fetch public http(s) hosts. Block localhost, private/link-local,
+    # reserved, and cloud-metadata addresses so a prompted agent can't reach internal services.
+    host = (urlparse(url).hostname or "").strip("[]")
+    if not host:
+        return "(invalid URL)"
+    try:
+        for info in socket.getaddrinfo(host, None):
+            ip = ipaddress.ip_address(info[4][0])
+            if (ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
+                    or ip.is_multicast or ip.is_unspecified):
+                return "(blocked: that URL resolves to a private/internal address)"
+    except Exception:
+        return "(could not resolve that URL)"
+    # Stream with a hard byte cap so a huge/endless page can't exhaust memory.
+    try:
+        with requests.get(url, headers={"User-Agent": "Mozilla/5.0 (compatible; Decagent/1.0)"},
+                          timeout=15, stream=True) as r:
+            chunks, total = [], 0
+            for chunk in r.iter_content(chunk_size=65536):
+                if not chunk:
+                    continue
+                chunks.append(chunk)
+                total += len(chunk)
+                if total >= 2_000_000:   # ~2MB
+                    break
+            raw = b"".join(chunks).decode(r.encoding or "utf-8", "replace")
+    except Exception as e:
+        return f"(could not fetch page: {e})"
+    html = re.sub(r"<(script|style)[\s\S]*?</\1>", " ", raw, flags=re.I)
     text = re.sub(r"<[^>]+>", " ", html)
     text = re.sub(r"\s+", " ", text).strip()
     return text[:max_chars] or "(no readable text on page)"
