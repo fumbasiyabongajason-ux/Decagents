@@ -63,14 +63,18 @@ def list_agents() -> list:
 # Which LLM provider?  (set by env vars — point this at a FREE provider)
 # --------------------------------------------------------------------------- #
 def provider_config() -> dict:
-    key = os.getenv("LLM_API_KEY") or os.getenv("OPENAI_API_KEY")
+    # .strip() everything: a stray space/newline pasted into an env var (e.g. LLM_MODEL)
+    # otherwise causes "model does not exist" / auth failures that look like outages.
+    def g(name, default=""):
+        return (os.getenv(name) or default).strip()
+    key = g("LLM_API_KEY") or g("OPENAI_API_KEY")
     if key:  # OpenAI-compatible: Gemini, Groq, OpenRouter, OpenAI, local…
         return {"kind": "openai", "key": key,
-                "base_url": os.getenv("LLM_BASE_URL", "https://api.openai.com/v1"),
-                "model": os.getenv("LLM_MODEL", "gpt-4o-mini")}
-    if os.getenv("ANTHROPIC_API_KEY"):
-        return {"kind": "anthropic", "key": os.getenv("ANTHROPIC_API_KEY"),
-                "base_url": None, "model": os.getenv("DECAGENT_MODEL", "claude-opus-4-8")}
+                "base_url": g("LLM_BASE_URL", "https://api.openai.com/v1"),
+                "model": g("LLM_MODEL", "gpt-4o-mini")}
+    if g("ANTHROPIC_API_KEY"):
+        return {"kind": "anthropic", "key": g("ANTHROPIC_API_KEY"),
+                "base_url": None, "model": g("DECAGENT_MODEL", "claude-opus-4-8")}
     return {"kind": None}
 
 
