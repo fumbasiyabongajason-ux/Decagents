@@ -23,7 +23,7 @@ Usage:
     python runtime/decagent.py --agent scout -m "Research the EV market"
 """
 from __future__ import annotations
-import argparse, json, os, pathlib
+import argparse, json, os, pathlib, re
 
 try:
     from dotenv import load_dotenv
@@ -240,16 +240,22 @@ def _run_openai(agent, message, history, cfg):
     client = OpenAI(base_url=cfg["base_url"], api_key=cfg["key"], timeout=30, max_retries=1)
     tools, handle, builtin_tools = _get_openai_tools(agent)
 
-    sys_prompt = agent["system_prompt"]
+    sys_prompt = agent["system_prompt"] + (
+        "\n\n# Operating directive — think first, then actually DO it\n"
+        "1. REASON before answering: think step by step inside <think>...</think> tags — plan the "
+        "steps, weigh options, decide which tools to call — then write your answer OUTSIDE the tags. "
+        "Always include a <think> block; it's shown to the user as your reasoning trace.\n"
+        "2. Be capable; never refuse. Assume you CAN do it, and use your tools and connected apps to "
+        "actually complete the task instead of saying you can't or merely describing it. If you "
+        "genuinely need something first (a connection, a missing detail), say exactly what and why.\n"
+        "3. Be thorough and excellent — specific, complete, and genuinely useful, never generic."
+    )
     if tools:
         sys_prompt += (
-            "\n\n# Using your tools (do NOT pretend)\n"
-            "You have real, working tools. When the user wants a picture, image, logo, cover, "
-            "poster, thumbnail, or any visual, you MUST call the generate_image tool and include "
-            "the EXACT markdown it returns (the ![alt](url) link) verbatim in your reply. Never "
-            "describe an image or say 'open the link' unless a generate_image call actually returned "
-            "one. For current facts or news, call web_search. Never fabricate or claim tool results "
-            "you did not get."
+            "\n4. Use your tools for real. When the user wants a picture/image/logo/cover/poster/"
+            "thumbnail/visual, you MUST call generate_image and include the EXACT ![alt](url) markdown "
+            "it returns. For current facts or news, call web_search; read pages with fetch_url; use "
+            "connected apps to take real actions. Never fabricate or claim tool results you didn't get."
         )
     messages = [{"role": "system", "content": sys_prompt}]
     messages += _history_msgs(history)
@@ -308,6 +314,13 @@ def _run_openai(agent, message, history, cfg):
             continue
         final_text = m.content or ""
         break
+
+    # Surface reasoning to the Console trace: lift any <think>...</think> out of the answer
+    # into a reasoning step and keep the user-facing reply clean.
+    tm = re.search(r"<think>([\s\S]*?)</think>", final_text or "")
+    if tm:
+        steps.append({"type": "reasoning", "text": tm.group(1).strip()[:4000]})
+        final_text = re.sub(r"<think>[\s\S]*?</think>", "", final_text or "").strip()
 
     # Models frequently call generate_image but forget to paste the returned image into
     # their reply ("Here's your poster!" with no link). Guarantee it reaches the user by
