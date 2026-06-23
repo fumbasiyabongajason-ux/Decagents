@@ -210,7 +210,7 @@ def _get_openai_tools(agent):
     backend_tools, backend_call = _backend_call(agent)
     tools = builtin_tools + list(backend_tools or [])
     if not tools:
-        return None, None
+        return None, None, []
 
     def handle(resp):
         out = []
@@ -229,7 +229,7 @@ def _get_openai_tools(agent):
             out.append({"role": "tool", "tool_call_id": tc.id, "content": str(content)})
         return out
 
-    return tools, handle
+    return tools, handle, builtin_tools
 
 
 def _run_openai(agent, message, history, cfg):
@@ -238,7 +238,7 @@ def _run_openai(agent, message, history, cfg):
     except ImportError:
         return "The OpenAI client isn't installed. Run:  pip install openai", []
     client = OpenAI(base_url=cfg["base_url"], api_key=cfg["key"], timeout=30, max_retries=1)
-    tools, handle = _get_openai_tools(agent)
+    tools, handle, builtin_tools = _get_openai_tools(agent)
 
     messages = [{"role": "system", "content": agent["system_prompt"]}]
     messages += _history_msgs(history)
@@ -258,11 +258,24 @@ def _run_openai(agent, message, history, cfg):
         try:
             resp = client.chat.completions.create(**kwargs)
         except Exception:
-            if tools:  # some free models reject tool schemas — fall back to plain chat
-                tools = handle = None
-                resp = client.chat.completions.create(model=cfg["model"], messages=messages)
-            else:
-                raise
+            # Degrade gracefully. A bad/unsupported tool schema — usually a connected-app
+            # (MCP) tool on a strict provider like Groq — can 400 the whole call. Step down
+            # WITHOUT losing the built-in tools (web_search, fetch_url, generate_image):
+            #   all tools  ->  built-ins only  ->  plain chat.
+            resp = None
+            if tools and builtin_tools and len(tools) != len(builtin_tools):
+                try:
+                    tools = list(builtin_tools)
+                    resp = client.chat.completions.create(
+                        model=cfg["model"], messages=messages, tools=tools)
+                except Exception:
+                    resp = None
+            if resp is None:
+                if tools:
+                    tools = handle = None
+                    resp = client.chat.completions.create(model=cfg["model"], messages=messages)
+                else:
+                    raise
         m = resp.choices[0].message
         reasoning = getattr(m, "reasoning", None) or getattr(m, "reasoning_content", None)
         if reasoning:
