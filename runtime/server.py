@@ -118,22 +118,16 @@ def run(req: RunRequest, authorization: Optional[str] = Header(default=None)):
     return {"agent": req.agent, "user": user, "response": text}
 
 
-@app.get("/debug/video")
-def debug_video(pw: Optional[str] = None):
-    """TEMP diagnostic — reports whether the app sees the video key and the EXACT related
-    env var NAMES (never values). Gated by the password. Safe to remove after debugging."""
-    if ACCESS_PASSWORD and not hmac.compare_digest(pw or "", ACCESS_PASSWORD):
-        raise HTTPException(401, "add ?pw=YOUR_PASSWORD")
-    g = os.getenv("GEMINI_API_KEY") or ""
-    g2 = os.getenv("GOOGLE_API_KEY") or ""
-    related = sorted(n for n in os.environ
-                     if any(s in n.upper() for s in ("GEMINI", "GOOGLE", "VEO", "_KEY")))
-    return {
-        "gemini_api_key_detected": bool(g.strip()),
-        "gemini_api_key_length": len(g),
-        "google_api_key_detected": bool(g2.strip()),
-        "related_env_var_names": related,
-    }
+@app.get("/p/{pid}", response_class=HTMLResponse)
+def page(pid: str):
+    """Serve a webpage published by the create_webpage tool — a live URL on this site."""
+    safe = os.path.basename(pid or "")
+    if not safe or not all(c.isalnum() or c in "_-" for c in safe):
+        raise HTTPException(404, "not found")
+    path = os.path.join(os.getenv("DECAGENT_PAGES_DIR", "/tmp/dgpages"), safe + ".html")
+    if not os.path.exists(path):
+        raise HTTPException(404, "not found")
+    return FileResponse(path, media_type="text/html", headers={"Cache-Control": "no-store"})
 
 
 @app.get("/", response_class=HTMLResponse)

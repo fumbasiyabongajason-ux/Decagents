@@ -276,7 +276,9 @@ def _run_openai(agent, message, history, cfg):
             "\n4. Use your tools for real — call them, don't narrate them. When the user wants a "
             "picture/image/logo/cover/poster/visual, you MUST call generate_image and include the "
             "EXACT ![alt](url) markdown it returns. When the user wants a video/clip/animation/ad, you "
-            "MUST call generate_video and include the link it returns. When asked to remember/note/save something, you "
+            "MUST call generate_video and include the link it returns. When the user wants a webpage/"
+            "landing page/website/template, you MUST call create_webpage with the FULL HTML you wrote "
+            "and share the live link it returns (never paste raw HTML at the user). When asked to remember/note/save something, you "
             "MUST call remember. When asked to do several things at once or 'in parallel', you MUST "
             "call dispatch_agents. For current facts or news, call web_search; read pages with "
             "fetch_url. NEVER say you saved, dispatched, generated, or did a tool action without "
@@ -426,6 +428,38 @@ def _run_openai(agent, message, history, cfg):
                     final_text = (final_text or "").rstrip() + "\n\n" + vid.strip()
             except Exception:
                 pass
+
+    # Webpage: append the create_webpage link if the tool ran; otherwise, if the user asked for
+    # a page and the model wrote HTML in its reply instead of calling the tool, publish that HTML
+    # to a live URL and swap the raw HTML out for the clean link.
+    produced_page = "/p/" in (final_text or "")
+    for s in steps:
+        if s.get("type") == "tool_result" and s.get("name") == "create_webpage":
+            mp = re.search(r"\[[^\]]*\]\(/p/[A-Za-z0-9_\-]+\)", s.get("content") or "")
+            if mp:
+                produced_page = True
+                if mp.group(0) not in (final_text or ""):
+                    final_text = (final_text or "").rstrip() + "\n\n" + mp.group(0)
+    asked_page = re.search(r"\b(make|create|build|generate|design|switch|want|need|give\s+me)\b"
+                           r"[^.?!\n]{0,40}\b(web\s?page|landing\s+page|website|html\s+page|site|template)\b",
+                           message or "", re.I)
+    if asked_page and not produced_page:
+        hm = (re.search(r"```html\s*([\s\S]*?)```", final_text or "", re.I)
+              or re.search(r"(<!doctype html[\s\S]*?</html>)", final_text or "", re.I)
+              or re.search(r"(<html[\s\S]*?</html>)", final_text or "", re.I))
+        if hm:
+            btp = _import_local("builtin_tools")
+            if btp:
+                try:
+                    res = btp.execute("create_webpage", {"html": hm.group(1)})
+                    mp2 = re.search(r"\[[^\]]*\]\(/p/[A-Za-z0-9_\-]+\)", res or "")
+                    if mp2:
+                        final_text = re.sub(r"```html[\s\S]*?```", "", final_text or "", flags=re.I)
+                        final_text = re.sub(r"<!doctype html[\s\S]*?</html>", "", final_text or "", flags=re.I)
+                        final_text = re.sub(r"<html[\s\S]*?</html>", "", final_text or "", flags=re.I)
+                        final_text = (final_text or "").strip() + "\n\n" + mp2.group(0)
+                except Exception:
+                    pass
 
     # Safety net: if the user explicitly said "remember/note/save this ..." but the model
     # never called remember, save it ourselves so an explicit memory request is never lost.

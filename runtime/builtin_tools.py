@@ -105,11 +105,46 @@ def _generate_image(prompt, width=1024, height=1024):
     return f"![{p}]({url})\n\n[Open image in new tab]({url})"
 
 
+def _gemini_key():
+    """Tolerant lookup: find a Gemini/Google key even if the env var NAME got duplicated or
+    typo'd (e.g. GEMINI_API_KEYGEMINI_API_KEY) — so a paste mistake doesn't block video."""
+    for k, v in os.environ.items():
+        ku = k.upper()
+        if v and v.strip() and ("GEMINI" in ku or ku in ("GOOGLE_API_KEY", "GOOGLE_GENAI_API_KEY")):
+            return v.strip()
+    return ""
+
+
+def _create_webpage(html, title=""):
+    """Publish HTML to a live URL on THIS site (/p/{id}) and return a markdown link.
+    No GitHub, no 404 — the page is saved and served by the app."""
+    import uuid
+    h = (html or "").strip()
+    m = re.search(r"```(?:html)?\s*([\s\S]*?)```", h)   # unwrap a ```html fenced block if present
+    if m and "<" in m.group(1):
+        h = m.group(1).strip()
+    if "<" not in h:
+        return "(no HTML provided for the page)"
+    if "<html" not in h.lower():
+        h = ("<!doctype html><html><head><meta charset='utf-8'>"
+             "<meta name='viewport' content='width=device-width,initial-scale=1'>"
+             f"<title>{(title or 'Page')[:80]}</title></head><body>{h}</body></html>")
+    pages_dir = os.getenv("DECAGENT_PAGES_DIR", "/tmp/dgpages")
+    try:
+        os.makedirs(pages_dir, exist_ok=True)
+        pid = uuid.uuid4().hex[:12]
+        with open(os.path.join(pages_dir, pid + ".html"), "w", encoding="utf-8") as f:
+            f.write(h)
+    except Exception as e:
+        return f"(could not publish the page: {e})"
+    return f"[🔗 View your live page](/p/{pid})"
+
+
 def _generate_video(prompt):
     """Text-to-video via Google AI Studio / Veo (free tier). Async: submit -> poll -> download
     -> save for the Console to play. Needs a free GEMINI_API_KEY (aistudio.google.com)."""
     import requests, time, uuid
-    key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    key = _gemini_key()
     if not key:
         return ("(video needs a free Google AI Studio key — set GEMINI_API_KEY in the environment, "
                 "then try again. Get one at https://aistudio.google.com .)")
@@ -353,6 +388,17 @@ TOOLS = [
                        "properties": {"prompt": {"type": "string", "description": "detailed description of the video to create"}},
                        "required": ["prompt"]}}},
     {"type": "function", "function": {
+        "name": "create_webpage",
+        "description": ("Publish a webpage and get a LIVE shareable URL on THIS site (not GitHub). Use "
+                        "when the user wants a webpage, landing page, website, or to switch templates: "
+                        "YOU write the full HTML (any template/style requested), pass it here, and "
+                        "include the returned link in your reply."),
+        "parameters": {"type": "object",
+                       "properties": {
+                           "html": {"type": "string", "description": "the complete HTML document for the page"},
+                           "title": {"type": "string", "description": "optional page title"}},
+                       "required": ["html"]}}},
+    {"type": "function", "function": {
         "name": "dispatch_agents",
         "description": ("Run several specialist agents IN PARALLEL and combine their results. Use for "
                         "big multi-part jobs ('war times') — e.g. research + write + plan at once. "
@@ -378,7 +424,7 @@ TOOLS = [
                        "properties": {"query": {"type": "string", "description": "what to look up"}},
                        "required": ["query"]}}},
 ]
-NAMES = {"web_search", "fetch_url", "generate_image", "generate_video", "dispatch_agents", "remember", "recall"}
+NAMES = {"web_search", "fetch_url", "generate_image", "generate_video", "create_webpage", "dispatch_agents", "remember", "recall"}
 
 
 def execute(name, args):
@@ -392,6 +438,8 @@ def execute(name, args):
                                    args.get("width", 1024), args.get("height", 1024))
         if name == "generate_video":
             return _generate_video(args.get("prompt", ""))
+        if name == "create_webpage":
+            return _create_webpage(args.get("html", ""), args.get("title", ""))
         if name == "dispatch_agents":
             return _dispatch_agents(args.get("tasks", []))
         if name == "remember":
