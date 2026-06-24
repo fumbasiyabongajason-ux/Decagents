@@ -141,16 +141,39 @@ def _create_webpage(html, title=""):
 
 
 def _generate_video(prompt):
-    """Text-to-video via Google AI Studio / Veo (free tier). Async: submit -> poll -> download
-    -> save for the Console to play. Needs a free GEMINI_API_KEY (aistudio.google.com)."""
-    import requests, time, uuid
-    key = _gemini_key()
-    if not key:
-        return ("(video needs a free Google AI Studio key — set GEMINI_API_KEY in the environment, "
-                "then try again. Get one at https://aistudio.google.com .)")
+    """Text-to-video. PREFERS Pollinations (free starter credits, NO credit card) when
+    POLLINATIONS_API_KEY is set; otherwise falls back to Google Veo (needs GEMINI_API_KEY +
+    billing). Saves the mp4 and returns a markdown link the Console plays inline."""
+    import requests, time, uuid, urllib.parse
     p = (prompt or "").strip()
     if not p:
         return "(no prompt given for the video)"
+
+    # Option 1 — Pollinations video: free to start, no credit card. Simple GET -> MP4.
+    pk = (os.getenv("POLLINATIONS_API_KEY") or os.getenv("POLLINATIONS_TOKEN") or "").strip()
+    if pk:
+        try:
+            pmodel = os.getenv("POLLINATIONS_VIDEO_MODEL", "wan-fast")
+            purl = (f"https://gen.pollinations.ai/video/{urllib.parse.quote(p, safe='')}"
+                    f"?model={pmodel}&audio=true")
+            pr = requests.get(purl, headers={"Authorization": f"Bearer {pk}"}, timeout=120)
+            if pr.ok and pr.content and "video" in (pr.headers.get("Content-Type") or "").lower():
+                os.makedirs("/tmp/dgmedia", exist_ok=True)
+                pname = uuid.uuid4().hex[:16] + ".mp4"
+                with open(os.path.join("/tmp/dgmedia", pname), "wb") as f:
+                    f.write(pr.content)
+                return f"[▶ Watch the generated video](/media/{pname})"
+            if pr.status_code in (402, 403):
+                return "(Pollinations video credits exhausted — top up at enter.pollinations.ai.)"
+        except Exception:
+            pass  # fall through to Veo
+
+    # Option 2 — Google Veo (needs GEMINI_API_KEY; Veo itself requires billing on the project).
+    key = _gemini_key()
+    if not key:
+        return ("(video needs a key — easiest FREE path: get a Pollinations key at "
+                "enter.pollinations.ai (no card) and set POLLINATIONS_API_KEY. Or set GEMINI_API_KEY "
+                "with billing enabled for Google Veo.)")
     model = os.getenv("VEO_MODEL", "veo-3.1-fast-generate-preview")
     base = "https://generativelanguage.googleapis.com/v1beta"
     hdr = {"x-goog-api-key": key, "Content-Type": "application/json"}
