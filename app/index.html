@@ -280,6 +280,7 @@ function md(t){
   t=t.replace(/`([^`]+)`/g,"<code>$1</code>");
   t=t.replace(/\*\*([^*]+)\*\*/g,"<strong>$1</strong>");
   t=t.replace(/!\[([^\]]*)\]\((https?:[^)\s]+)\)/g,(m,a,u)=>`<img src="${u.replace(/"/g,"&quot;")}" alt="${a.replace(/"/g,"&quot;")}" loading="lazy" style="max-width:100%;border-radius:12px;margin:8px 0;display:block">`);
+  t=t.replace(/\[([^\]]*)\]\(((?:\/media\/|https?:)[^)\s]+\.mp4)\)/g,(m,txt,u)=>`<video controls src="${u.replace(/"/g,"&quot;")}" style="max-width:100%;border-radius:12px;margin:8px 0;display:block"></video>`);
   t=t.replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g,(m,txt,u)=>`<a href="${u.replace(/"/g,"&quot;")}" target="_blank" rel="noopener noreferrer">${txt}</a>`);
   t=t.replace(/^### (.*)$/gm,"<h3>$1</h3>");
   t=t.replace(/^(?:- |\* )(.*)$/gm,"<li>$1</li>").replace(/^\d+\. (.*)$/gm,"<li>$1</li>");

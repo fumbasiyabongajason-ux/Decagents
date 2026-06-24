@@ -132,6 +132,18 @@ def api_info():
             "chat": "POST /chat", "run": "POST /run", "connect": "GET /connect"}
 
 
+@app.get("/media/{name}")
+def media(name: str):
+    """Serve a generated video (mp4) saved by the generate_video tool."""
+    safe = os.path.basename(name or "")
+    if "/" in (name or "") or ".." in (name or "") or not safe.endswith(".mp4"):
+        raise HTTPException(404, "not found")
+    path = os.path.join("/tmp/dgmedia", safe)
+    if not os.path.exists(path):
+        raise HTTPException(404, "not found")
+    return FileResponse(path, media_type="video/mp4")
+
+
 @app.get("/connect")
 def connect(app: Optional[str] = None, pw: Optional[str] = None):
     """One-click helper to connect your Pipedream app accounts (no curl needed).

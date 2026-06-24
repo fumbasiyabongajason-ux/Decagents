@@ -275,7 +275,8 @@ def _run_openai(agent, message, history, cfg):
         sys_prompt += (
             "\n4. Use your tools for real — call them, don't narrate them. When the user wants a "
             "picture/image/logo/cover/poster/visual, you MUST call generate_image and include the "
-            "EXACT ![alt](url) markdown it returns. When asked to remember/note/save something, you "
+            "EXACT ![alt](url) markdown it returns. When the user wants a video/clip/animation/ad, you "
+            "MUST call generate_video and include the link it returns. When asked to remember/note/save something, you "
             "MUST call remember. When asked to do several things at once or 'in parallel', you MUST "
             "call dispatch_agents. For current facts or news, call web_search; read pages with "
             "fetch_url. NEVER say you saved, dispatched, generated, or did a tool action without "
@@ -377,6 +378,13 @@ def _run_openai(agent, message, history, cfg):
             if mt and mt.group(0) not in (final_text or ""):
                 final_text = (final_text or "").rstrip() + "\n\n" + mt.group(0)
                 produced_image = True
+
+    # Same for a generated video: make sure the produced clip reaches the user's reply.
+    for s in steps:
+        if s.get("type") == "tool_result" and s.get("name") == "generate_video":
+            mv = re.search(r"\[[^\]]*\]\(/media/[A-Za-z0-9_.\-]+\.mp4\)", s.get("content") or "")
+            if mv and mv.group(0) not in (final_text or ""):
+                final_text = (final_text or "").rstrip() + "\n\n" + mv.group(0)
 
     # Safety net: if the user clearly asked for an image but the model never actually made one
     # (some models just say "I'll create an image" without calling the tool), generate it

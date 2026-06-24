@@ -105,6 +105,62 @@ def _generate_image(prompt, width=1024, height=1024):
     return f"![{p}]({url})\n\n[Open image in new tab]({url})"
 
 
+def _generate_video(prompt):
+    """Text-to-video via Google AI Studio / Veo (free tier). Async: submit -> poll -> download
+    -> save for the Console to play. Needs a free GEMINI_API_KEY (aistudio.google.com)."""
+    import requests, time, uuid
+    key = os.getenv("GEMINI_API_KEY") or os.getenv("GOOGLE_API_KEY")
+    if not key:
+        return ("(video needs a free Google AI Studio key — set GEMINI_API_KEY in the environment, "
+                "then try again. Get one at https://aistudio.google.com .)")
+    p = (prompt or "").strip()
+    if not p:
+        return "(no prompt given for the video)"
+    model = os.getenv("VEO_MODEL", "veo-3.1-fast-generate-preview")
+    base = "https://generativelanguage.googleapis.com/v1beta"
+    hdr = {"x-goog-api-key": key, "Content-Type": "application/json"}
+    try:
+        r = requests.post(f"{base}/models/{model}:predictLongRunning", headers=hdr,
+                          json={"instances": [{"prompt": p}], "parameters": {"aspectRatio": "16:9"}},
+                          timeout=30)
+        if not r.ok:
+            return f"(video request rejected: {r.status_code} {r.text[:160]})"
+        op = (r.json() or {}).get("name")
+        if not op:
+            return "(video service did not return an operation id)"
+    except Exception as e:
+        return f"(could not start video: {e})"
+    # Poll the long-running op. Kept tight so it fits the chat budget; fast model usually finishes.
+    uri, deadline = None, time.time() + 55
+    while time.time() < deadline:
+        time.sleep(7)
+        try:
+            s = requests.get(f"{base}/{op}", headers=hdr, timeout=20).json()
+        except Exception:
+            continue
+        if s.get("error"):
+            return f"(video generation failed: {str(s.get('error'))[:160]})"
+        if s.get("done"):
+            try:
+                uri = s["response"]["generateVideoResponse"]["generatedSamples"][0]["video"]["uri"]
+            except Exception:
+                return "(video finished but no file was returned)"
+            break
+    if not uri:
+        return "(the video is still rendering — Veo can take ~a minute. Ask me to make it again shortly.)"
+    try:
+        vr = requests.get(uri, headers=hdr, timeout=25, allow_redirects=True)
+        if not vr.ok or not vr.content:
+            return "(could not download the finished video)"
+        os.makedirs("/tmp/dgmedia", exist_ok=True)
+        name = uuid.uuid4().hex[:16] + ".mp4"
+        with open(os.path.join("/tmp/dgmedia", name), "wb") as f:
+            f.write(vr.content)
+    except Exception as e:
+        return f"(could not save the video: {e})"
+    return f"[▶ Watch the generated video](/media/{name})"
+
+
 # --------------------------------------------------------------------------- #
 # Memory — remember/recall across conversations. File-backed so it works now;
 # set SUPABASE_URL + SUPABASE_KEY (+ a 'decagent_memories' table with a text
@@ -289,6 +345,14 @@ TOOLS = [
                            "height": {"type": "integer", "description": "optional height in px (256-1536, default 1024)"}},
                        "required": ["prompt"]}}},
     {"type": "function", "function": {
+        "name": "generate_video",
+        "description": ("Generate a short video (~8s, with audio) from a text prompt via Veo. Use when "
+                        "the user asks for a video, clip, animation, or ad. Returns a markdown video "
+                        "link you MUST include verbatim. Note: takes about a minute."),
+        "parameters": {"type": "object",
+                       "properties": {"prompt": {"type": "string", "description": "detailed description of the video to create"}},
+                       "required": ["prompt"]}}},
+    {"type": "function", "function": {
         "name": "dispatch_agents",
         "description": ("Run several specialist agents IN PARALLEL and combine their results. Use for "
                         "big multi-part jobs ('war times') — e.g. research + write + plan at once. "
@@ -314,7 +378,7 @@ TOOLS = [
                        "properties": {"query": {"type": "string", "description": "what to look up"}},
                        "required": ["query"]}}},
 ]
-NAMES = {"web_search", "fetch_url", "generate_image", "dispatch_agents", "remember", "recall"}
+NAMES = {"web_search", "fetch_url", "generate_image", "generate_video", "dispatch_agents", "remember", "recall"}
 
 
 def execute(name, args):
@@ -326,6 +390,8 @@ def execute(name, args):
         if name == "generate_image":
             return _generate_image(args.get("prompt", ""),
                                    args.get("width", 1024), args.get("height", 1024))
+        if name == "generate_video":
+            return _generate_video(args.get("prompt", ""))
         if name == "dispatch_agents":
             return _dispatch_agents(args.get("tasks", []))
         if name == "remember":
