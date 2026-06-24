@@ -59,6 +59,30 @@ def _run_with_deadline(fn, *args, **kwargs):
     return _EXECUTOR.submit(fn, *args, **kwargs).result(timeout=HARD_TIMEOUT_SEC)
 
 
+def _keep_warm():
+    """Self-ping the PUBLIC URL every ~10 min so Render's free tier never spins the
+    app down (15-min idle = cold start / 'needs refresh'). Inbound traffic to the
+    external URL resets the idle timer; an internal localhost ping would NOT. Render
+    sets RENDER_EXTERNAL_URL automatically. Disable with DECAGENT_KEEPWARM=0."""
+    import time, requests
+    if os.getenv("DECAGENT_KEEPWARM", "1") == "0":
+        return
+    url = (os.getenv("RENDER_EXTERNAL_URL") or os.getenv("DECAGENT_PUBLIC_URL") or "").rstrip("/")
+    if not url:
+        return
+    time.sleep(45)  # let the app finish booting first
+    while True:
+        try:
+            requests.get(url + "/api", timeout=20)
+        except Exception:
+            pass
+        time.sleep(600)  # 10 min < Render's 15-min idle window
+
+
+import threading as _kw_threading
+_kw_threading.Thread(target=_keep_warm, daemon=True).start()
+
+
 class RunRequest(BaseModel):
     agent: str
     message: str

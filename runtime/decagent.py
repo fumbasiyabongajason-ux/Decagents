@@ -306,30 +306,45 @@ def _run_openai(agent, message, history, cfg):
             if not final_text:
                 final_text = "(That took too long — please try again or simplify the request.)"
             break
-        kwargs = {"model": cfg["model"], "messages": messages}
-        if tools:
-            kwargs["tools"] = tools
+        # Try the primary model, then LLM_FALLBACK_MODEL (a different model = a SEPARATE Groq
+        # rate-limit budget) so an intermittent 429 on one model doesn't kill the response.
+        # Then degrade tools if a schema is rejected: all tools -> built-ins only -> plain chat.
+        _fb = (os.getenv("LLM_FALLBACK_MODEL") or "").strip()
+        _models = [cfg["model"]] + ([_fb] if _fb and _fb != cfg["model"] else [])
+
+        def _create(use_tools):
+            kw = {"messages": messages}
+            if use_tools and tools:
+                kw["tools"] = tools
+            err = None
+            for _mdl in _models:
+                try:
+                    return client.chat.completions.create(model=_mdl, **kw)
+                except Exception as _e:
+                    err = _e
+            raise err
+
         try:
-            resp = client.chat.completions.create(**kwargs)
+            resp = _create(True)
         except Exception:
-            # Degrade gracefully. A bad/unsupported tool schema — usually a connected-app
-            # (MCP) tool on a strict provider like Groq — can 400 the whole call. Step down
-            # WITHOUT losing the built-in tools (web_search, fetch_url, generate_image):
-            #   all tools  ->  built-ins only  ->  plain chat.
             resp = None
             if tools and builtin_tools and len(tools) != len(builtin_tools):
                 try:
                     tools = list(builtin_tools)
-                    resp = client.chat.completions.create(
-                        model=cfg["model"], messages=messages, tools=tools)
+                    resp = _create(True)
                 except Exception:
                     resp = None
             if resp is None:
                 if tools:
                     tools = handle = None
-                    resp = client.chat.completions.create(model=cfg["model"], messages=messages)
-                else:
-                    raise
+                try:
+                    resp = _create(False)
+                except Exception:
+                    if not final_text:
+                        final_text = ("(The model is briefly rate-limited — please try again in a "
+                                      "moment. If it keeps happening, the free per-minute token "
+                                      "limit is being hit.)")
+                    break
         m = resp.choices[0].message
         reasoning = getattr(m, "reasoning", None) or getattr(m, "reasoning_content", None)
         if reasoning:

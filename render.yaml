@@ -19,7 +19,9 @@ services:
       - key: LLM_BASE_URL
         value: https://api.groq.com/openai/v1
       - key: LLM_MODEL
-        value: llama-3.1-8b-instant   # Groq: 5x free token budget (500k TPD / 14.4k RPD) vs 70b's 100k. Clean Llama tool-calling. Retires 2026-08-16; swap to 70b for max quality.
+        value: llama-3.3-70b-versatile   # Groq primary: 12k TPM (2x the 8b) = fewer intermittent 429s; 100k TPD. Retires 2026-08-16.
+      - key: LLM_FALLBACK_MODEL
+        value: llama-3.1-8b-instant      # auto-fallback when the primary rate-limits (separate per-model budget = far fewer "no response")
       # --- Tools via Pipedream Connect MCP (managed auth, thousands of apps) ---
       # The app auto-mints + refreshes the Pipedream token from your client id/secret.
       - key: TOOLS_BACKEND
