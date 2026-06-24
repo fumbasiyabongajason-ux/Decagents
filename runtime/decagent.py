@@ -282,7 +282,13 @@ def _run_openai(agent, message, history, cfg):
             "MUST call remember. When asked to do several things at once or 'in parallel', you MUST "
             "call dispatch_agents. For current facts or news, call web_search; read pages with "
             "fetch_url. NEVER say you saved, dispatched, generated, or did a tool action without "
-            "actually calling that tool — claiming you did without calling it is a failure."
+            "actually calling that tool — claiming you did without calling it is a failure.\n"
+            "5. REAL DATA ONLY. For any real fact, number, price, date, person, company, statistic, "
+            "or link, you MUST call web_search (then fetch_url to read the source) and answer ONLY "
+            "from what the results actually say. NEVER invent or guess URLs, links, figures, quotes, "
+            "or sources — a fabricated link or made-up fact is a serious failure. Only share a link a "
+            "tool actually returned to you. If the tools don't give you the answer, say so plainly "
+            "instead of making something up."
         )
     # Remind the agent of recent long-term memories so it doesn't forget past work.
     _bt0 = _import_local("builtin_tools")
@@ -444,21 +450,20 @@ def _run_openai(agent, message, history, cfg):
             except Exception:
                 pass
 
-    # Webpage: append the create_webpage link if the tool ran; otherwise, if the user asked for
-    # a page and the model wrote HTML in its reply instead of calling the tool, publish that HTML
-    # to a live URL and swap the raw HTML out for the clean link.
-    produced_page = "/p/" in (final_text or "")
+    # Webpage: a /p/ link is REAL only if create_webpage actually ran and saved the file. The
+    # model sometimes invents a /p/ URL (which then 404s), so we trust ONLY real ones, strip any
+    # hallucinated ones, and publish the model's inline HTML if it wrote some.
+    real_pages = []
     for s in steps:
         if s.get("type") == "tool_result" and s.get("name") == "create_webpage":
-            mp = re.search(r"\[[^\]]*\]\(/p/[A-Za-z0-9_\-]+\)", s.get("content") or "")
+            mp = re.search(r"/p/[A-Za-z0-9_\-]+", s.get("content") or "")
             if mp:
-                produced_page = True
-                if mp.group(0) not in (final_text or ""):
-                    final_text = (final_text or "").rstrip() + "\n\n" + mp.group(0)
+                real_pages.append(mp.group(0))
     asked_page = re.search(r"\b(make|create|build|generate|design|switch|want|need|give\s+me)\b"
                            r"[^.?!\n]{0,40}\b(web\s?page|landing\s+page|website|html\s+page|site|template)\b",
                            message or "", re.I)
-    if asked_page and not produced_page:
+    if not real_pages and asked_page:
+        # Model didn't really publish. If it wrote HTML inline, publish THAT for a real link.
         hm = (re.search(r"```html\s*([\s\S]*?)```", final_text or "", re.I)
               or re.search(r"(<!doctype html[\s\S]*?</html>)", final_text or "", re.I)
               or re.search(r"(<html[\s\S]*?</html>)", final_text or "", re.I))
@@ -467,14 +472,26 @@ def _run_openai(agent, message, history, cfg):
             if btp:
                 try:
                     res = btp.execute("create_webpage", {"html": hm.group(1)})
-                    mp2 = re.search(r"\[[^\]]*\]\(/p/[A-Za-z0-9_\-]+\)", res or "")
+                    mp2 = re.search(r"/p/[A-Za-z0-9_\-]+", res or "")
                     if mp2:
+                        real_pages.append(mp2.group(0))
                         final_text = re.sub(r"```html[\s\S]*?```", "", final_text or "", flags=re.I)
                         final_text = re.sub(r"<!doctype html[\s\S]*?</html>", "", final_text or "", flags=re.I)
                         final_text = re.sub(r"<html[\s\S]*?</html>", "", final_text or "", flags=re.I)
-                        final_text = (final_text or "").strip() + "\n\n" + mp2.group(0)
                 except Exception:
                     pass
+    # Strip any /p/ URL the model invented that isn't a real saved page (kills the 404s).
+    if "/p/" in (final_text or ""):
+        final_text = re.sub(r"/p/[A-Za-z0-9_\-]+",
+                            lambda m: m.group(0) if m.group(0) in real_pages else "", final_text or "")
+        final_text = re.sub(r"\[[^\]]*\]\(\s*\)", "", final_text or "")   # clean empty link shells
+    # Make sure every REAL page link is shown.
+    for link in real_pages:
+        if link not in (final_text or ""):
+            final_text = (final_text or "").rstrip() + f"\n\n[🔗 View your live page]({link})"
+    if asked_page and not real_pages:
+        final_text = ((final_text or "").rstrip()
+                      + "\n\n(I couldn't publish the page that time — ask once more and I'll build it.)")
 
     # Safety net: if the user explicitly said "remember/note/save this ..." but the model
     # never called remember, save it ourselves so an explicit memory request is never lost.
