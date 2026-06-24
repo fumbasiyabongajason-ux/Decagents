@@ -202,13 +202,28 @@ import threading as _threading
 _DISPATCH = _threading.local()
 
 
+_KNOWN_AGENTS = {"builder", "webwright", "octopilot", "harvest", "prospector",
+                 "outreach", "scribe", "scout", "broadcast", "concierge", "patch", "buzz", "auto"}
+
+
 def _dispatch_agents(tasks, max_parallel=5):
     if getattr(_DISPATCH, "active", False):
         return "(nested dispatch disabled — a dispatched agent can't dispatch again)"
     if not isinstance(tasks, list) or not tasks:
-        return "(dispatch_agents needs a non-empty list of {agent, task})"
-    tasks = [t for t in tasks if isinstance(t, dict) and t.get("task")][:max_parallel]
-    if not tasks:
+        return "(dispatch_agents needs a non-empty list of subtasks)"
+    # Accept simple strings ("agent: task" or "task") OR {agent, task} dicts.
+    norm = []
+    for t in tasks[:max_parallel]:
+        if isinstance(t, dict):
+            norm.append(((t.get("agent") or "auto"), (t.get("task") or "")))
+        elif isinstance(t, str) and t.strip():
+            if ":" in t and t.split(":", 1)[0].strip().lower() in _KNOWN_AGENTS:
+                a, task = t.split(":", 1)
+                norm.append((a.strip().lower(), task.strip()))
+            else:
+                norm.append(("auto", t.strip()))
+    norm = [(a, tk) for a, tk in norm if tk]
+    if not norm:
         return "(no valid subtasks)"
     import importlib, concurrent.futures
     dec = None
@@ -221,11 +236,12 @@ def _dispatch_agents(tasks, max_parallel=5):
     if not dec:
         return "(dispatch unavailable)"
 
-    def _one(t):
+    def _one(pair):
         _DISPATCH.active = True
         try:
-            aid = (t.get("agent") or "auto").strip() or "auto"
-            task = (t.get("task") or "").strip()
+            aid, task = pair
+            aid = (aid or "auto").strip() or "auto"
+            task = (task or "").strip()
             try:
                 agent_id = dec.route(task) if aid == "auto" else aid
                 text, _steps = dec.run_traced(agent_id, task, history=[])
@@ -238,8 +254,8 @@ def _dispatch_agents(tasks, max_parallel=5):
             _DISPATCH.active = False
 
     results = []
-    with concurrent.futures.ThreadPoolExecutor(max_workers=min(max_parallel, len(tasks))) as ex:
-        for r in ex.map(_one, tasks):
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(max_parallel, len(norm))) as ex:
+        for r in ex.map(_one, norm):
             results.append(r)
     return "\n\n".join(results)
 
@@ -278,12 +294,10 @@ TOOLS = [
                         "big multi-part jobs ('war times') — e.g. research + write + plan at once. "
                         "Give a list of subtasks; each runs at the same time."),
         "parameters": {"type": "object",
-                       "properties": {"tasks": {"type": "array",
-                           "description": "subtasks to run in parallel (max 5)",
-                           "items": {"type": "object", "properties": {
-                               "agent": {"type": "string", "description": "agent id (scout, scribe, builder, …) or 'auto'"},
-                               "task": {"type": "string", "description": "what that agent should do"}},
-                               "required": ["task"]}}},
+                       "properties": {"tasks": {"type": "array", "items": {"type": "string"},
+                           "description": ("subtasks to run in parallel (max 5). Optionally prefix one "
+                                           "with an agent id, e.g. 'scout: find the BPM of reggae'; "
+                                           "otherwise it auto-routes.")}},
                        "required": ["tasks"]}}},
     {"type": "function", "function": {
         "name": "remember",
