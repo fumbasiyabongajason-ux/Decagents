@@ -105,6 +105,145 @@ def _generate_image(prompt, width=1024, height=1024):
     return f"![{p}]({url})\n\n[Open image in new tab]({url})"
 
 
+# --------------------------------------------------------------------------- #
+# Memory — remember/recall across conversations. File-backed so it works now;
+# set SUPABASE_URL + SUPABASE_KEY (+ a 'decagent_memories' table with a text
+# column) for true cross-restart persistence ("never forget").
+# --------------------------------------------------------------------------- #
+import json as _json, time as _time
+_MEM_FILE = os.getenv("DECAGENT_MEMORY_FILE", "/tmp/decagent_memory.json")
+
+
+def _sb():
+    url = (os.getenv("SUPABASE_URL") or "").rstrip("/")
+    key = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_KEY") or ""
+    table = os.getenv("DECAGENT_MEMORY_TABLE", "decagent_memories")
+    return (url, key, table) if (url and key) else (None, None, None)
+
+
+def _mem_load():
+    url, key, table = _sb()
+    if url:
+        try:
+            import requests
+            r = requests.get(f"{url}/rest/v1/{table}?select=text&order=created_at.desc&limit=500",
+                             headers={"apikey": key, "Authorization": f"Bearer {key}"}, timeout=10)
+            if r.ok:
+                return [{"text": it.get("text", "")} for it in r.json()][::-1]
+        except Exception:
+            pass  # fall back to the local file on any error
+    try:
+        with open(_MEM_FILE) as f:
+            return _json.load(f)
+    except Exception:
+        return []
+
+
+def _mem_add(text):
+    url, key, _table = _sb()
+    if url:
+        try:
+            import requests
+            r = requests.post(f"{url}/rest/v1/{_table}",
+                              headers={"apikey": key, "Authorization": f"Bearer {key}",
+                                       "Content-Type": "application/json"},
+                              json={"text": text}, timeout=10)
+            if r.ok:
+                return
+        except Exception:
+            pass
+    try:
+        items = _mem_load()
+    except Exception:
+        items = []
+    items.append({"t": int(_time.time()), "text": text})
+    try:
+        with open(_MEM_FILE, "w") as f:
+            _json.dump(items[-500:], f)
+    except Exception:
+        pass
+
+
+def _remember(text):
+    text = (text or "").strip()
+    if not text:
+        return "(nothing to remember)"
+    _mem_add(text[:2000])
+    return "Saved to memory."
+
+
+def _recall(query, k=6):
+    items = _mem_load()
+    if not items:
+        return "(no memories saved yet)"
+    q = [w for w in re.split(r"\W+", (query or "").lower()) if len(w) > 2]
+    hits = []
+    if q:
+        scored = sorted(items, key=lambda it: sum(1 for w in q if w in (it.get("text") or "").lower()),
+                        reverse=True)
+        hits = [it for it in scored if any(w in (it.get("text") or "").lower() for w in q)][:k]
+    if not hits:
+        hits = items[-k:]   # fall back to most recent
+    return "\n".join(f"- {(it.get('text') or '').strip()}" for it in hits)
+
+
+def recent_memories(k=5):
+    """Runtime helper: surface the latest memories so agents stay aware of past work."""
+    items = _mem_load()
+    return [(it.get("text") or "").strip() for it in items[-k:] if (it.get("text") or "").strip()]
+
+
+# --------------------------------------------------------------------------- #
+# Parallel dispatch — a worker can fan subtasks out to several agents at once.
+# One level deep only (nested dispatch disabled) and capped, so it can never
+# runaway-recurse or blow the LLM rate limit.
+# --------------------------------------------------------------------------- #
+import threading as _threading
+_DISPATCH = _threading.local()
+
+
+def _dispatch_agents(tasks, max_parallel=5):
+    if getattr(_DISPATCH, "active", False):
+        return "(nested dispatch disabled — a dispatched agent can't dispatch again)"
+    if not isinstance(tasks, list) or not tasks:
+        return "(dispatch_agents needs a non-empty list of {agent, task})"
+    tasks = [t for t in tasks if isinstance(t, dict) and t.get("task")][:max_parallel]
+    if not tasks:
+        return "(no valid subtasks)"
+    import importlib, concurrent.futures
+    dec = None
+    for modname in ("runtime.decagent", "decagent"):
+        try:
+            dec = importlib.import_module(modname)
+            break
+        except Exception:
+            continue
+    if not dec:
+        return "(dispatch unavailable)"
+
+    def _one(t):
+        _DISPATCH.active = True
+        try:
+            aid = (t.get("agent") or "auto").strip() or "auto"
+            task = (t.get("task") or "").strip()
+            try:
+                agent_id = dec.route(task) if aid == "auto" else aid
+                text, _steps = dec.run_traced(agent_id, task, history=[])
+                return f"### {agent_id}\n{(text or '(no output)').strip()}"
+            except SystemExit:
+                return f"### {aid}\n(unknown agent '{aid}')"
+            except Exception as e:
+                return f"### {aid}\n(failed: {e})"
+        finally:
+            _DISPATCH.active = False
+
+    results = []
+    with concurrent.futures.ThreadPoolExecutor(max_workers=min(max_parallel, len(tasks))) as ex:
+        for r in ex.map(_one, tasks):
+            results.append(r)
+    return "\n\n".join(results)
+
+
 TOOLS = [
     {"type": "function", "function": {
         "name": "web_search",
@@ -133,8 +272,35 @@ TOOLS = [
                            "width": {"type": "integer", "description": "optional width in px (256-1536, default 1024)"},
                            "height": {"type": "integer", "description": "optional height in px (256-1536, default 1024)"}},
                        "required": ["prompt"]}}},
+    {"type": "function", "function": {
+        "name": "dispatch_agents",
+        "description": ("Run several specialist agents IN PARALLEL and combine their results. Use for "
+                        "big multi-part jobs ('war times') — e.g. research + write + plan at once. "
+                        "Give a list of subtasks; each runs at the same time."),
+        "parameters": {"type": "object",
+                       "properties": {"tasks": {"type": "array",
+                           "description": "subtasks to run in parallel (max 5)",
+                           "items": {"type": "object", "properties": {
+                               "agent": {"type": "string", "description": "agent id (scout, scribe, builder, …) or 'auto'"},
+                               "task": {"type": "string", "description": "what that agent should do"}},
+                               "required": ["task"]}}},
+                       "required": ["tasks"]}}},
+    {"type": "function", "function": {
+        "name": "remember",
+        "description": ("Save an important fact, preference, decision, or detail to long-term memory "
+                        "so it is not forgotten in future conversations."),
+        "parameters": {"type": "object",
+                       "properties": {"text": {"type": "string", "description": "the fact to remember"}},
+                       "required": ["text"]}}},
+    {"type": "function", "function": {
+        "name": "recall",
+        "description": ("Search long-term memory for previously saved facts relevant to a query — "
+                        "earlier work, preferences, or context."),
+        "parameters": {"type": "object",
+                       "properties": {"query": {"type": "string", "description": "what to look up"}},
+                       "required": ["query"]}}},
 ]
-NAMES = {"web_search", "fetch_url", "generate_image"}
+NAMES = {"web_search", "fetch_url", "generate_image", "dispatch_agents", "remember", "recall"}
 
 
 def execute(name, args):
@@ -146,6 +312,12 @@ def execute(name, args):
         if name == "generate_image":
             return _generate_image(args.get("prompt", ""),
                                    args.get("width", 1024), args.get("height", 1024))
+        if name == "dispatch_agents":
+            return _dispatch_agents(args.get("tasks", []))
+        if name == "remember":
+            return _remember(args.get("text", ""))
+        if name == "recall":
+            return _recall(args.get("query", ""))
     except Exception as e:
         return f"({name} failed: {e})"
     return f"(unknown built-in tool '{name}')"

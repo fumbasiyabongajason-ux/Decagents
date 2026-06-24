@@ -212,6 +212,31 @@ def _get_openai_tools(agent):
     if not tools:
         return None, None, []
 
+    def _call_tool(name, args):
+        """Tighten tool calling: up to 3 attempts with backoff on transient failures
+        (rate limits, timeouts, flaky network) so a hiccup doesn't break the worker."""
+        import time as _t
+        last = f"(no handler for tool '{name}')"
+        for i in range(3):
+            try:
+                if bt and name in builtin_names:
+                    last = bt.execute(name, args)
+                elif backend_call:
+                    last = backend_call(name, args)
+                else:
+                    return last
+            except Exception as e:
+                last = f"({name} failed: {e})"
+            s = str(last or "").strip().lower()
+            transient = s.startswith("(") and any(w in s for w in
+                ("fail", "error", "timed out", "timeout", "no response",
+                 "unavailable", "try again", "rate limit", "429", "temporarily"))
+            if not transient:
+                return last
+            if i < 2:
+                _t.sleep(1.0 * (i + 1))
+        return last
+
     def handle(resp):
         out = []
         for tc in (getattr(resp.choices[0].message, "tool_calls", None) or []):
@@ -220,12 +245,7 @@ def _get_openai_tools(agent):
                 args = json.loads(tc.function.arguments or "{}")
             except Exception:
                 args = {}
-            if bt and name in builtin_names:
-                content = bt.execute(name, args)
-            elif backend_call:
-                content = backend_call(name, args)
-            else:
-                content = f"(no handler for tool '{name}')"
+            content = _call_tool(name, args)
             out.append({"role": "tool", "tool_call_id": tc.id, "content": str(content)})
         return out
 
@@ -258,6 +278,16 @@ def _run_openai(agent, message, history, cfg):
             "it returns. For current facts or news, call web_search; read pages with fetch_url; use "
             "connected apps to take real actions. Never fabricate or claim tool results you didn't get."
         )
+    # Remind the agent of recent long-term memories so it doesn't forget past work.
+    _bt0 = _import_local("builtin_tools")
+    if _bt0 and hasattr(_bt0, "recent_memories"):
+        try:
+            _mems = _bt0.recent_memories(5)
+        except Exception:
+            _mems = []
+        if _mems:
+            sys_prompt += ("\n\n# Memory — recent things you've saved (use if relevant)\n"
+                           + "\n".join(f"- {m}" for m in _mems))
     messages = [{"role": "system", "content": sys_prompt}]
     messages += _history_msgs(history)
     messages.append({"role": "user", "content": message})
