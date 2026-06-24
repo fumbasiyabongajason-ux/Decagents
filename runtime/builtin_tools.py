@@ -125,6 +125,12 @@ def _create_webpage(html, title=""):
         h = m.group(1).strip()
     if "<" not in h:
         return "(no HTML provided for the page)"
+    # Reject placeholder/empty HTML so we never publish a blank page.
+    visible = re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", h)).strip()
+    if (len(visible) < 40 or "represent the actual" in h.lower()
+            or "your html here" in h.lower() or "...</html>" in h.lower()):
+        return ("(that looked like placeholder HTML, not a finished page — write the COMPLETE "
+                "HTML with real content, then call create_webpage again)")
     if "<html" not in h.lower():
         h = ("<!doctype html><html><head><meta charset='utf-8'>"
              "<meta name='viewport' content='width=device-width,initial-scale=1'>"
