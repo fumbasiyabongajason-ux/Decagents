@@ -273,10 +273,13 @@ def _run_openai(agent, message, history, cfg):
     )
     if tools:
         sys_prompt += (
-            "\n4. Use your tools for real. When the user wants a picture/image/logo/cover/poster/"
-            "thumbnail/visual, you MUST call generate_image and include the EXACT ![alt](url) markdown "
-            "it returns. For current facts or news, call web_search; read pages with fetch_url; use "
-            "connected apps to take real actions. Never fabricate or claim tool results you didn't get."
+            "\n4. Use your tools for real — call them, don't narrate them. When the user wants a "
+            "picture/image/logo/cover/poster/visual, you MUST call generate_image and include the "
+            "EXACT ![alt](url) markdown it returns. When asked to remember/note/save something, you "
+            "MUST call remember. When asked to do several things at once or 'in parallel', you MUST "
+            "call dispatch_agents. For current facts or news, call web_search; read pages with "
+            "fetch_url. NEVER say you saved, dispatched, generated, or did a tool action without "
+            "actually calling that tool — claiming you did without calling it is a failure."
         )
     # Remind the agent of recent long-term memories so it doesn't forget past work.
     _bt0 = _import_local("builtin_tools")
@@ -393,6 +396,20 @@ def _run_openai(agent, message, history, cfg):
                     final_text = (final_text or "").rstrip() + "\n\n" + mt2.group(0)
             except Exception:
                 pass
+
+    # Safety net: if the user explicitly said "remember/note/save this ..." but the model
+    # never called remember, save it ourselves so an explicit memory request is never lost.
+    if not any(s.get("name") == "remember" for s in steps):
+        if re.match(r"\s*(please\s+)?(remember|note|don'?t\s+forget|keep\s+in\s+mind|save\s+this|make\s+a\s+note)\b",
+                    message or "", re.I):
+            btmod2 = _import_local("builtin_tools")
+            if btmod2:
+                fact = re.sub(r"^\s*(please\s+)?(remember|note|don'?t\s+forget|keep\s+in\s+mind|save\s+this|make\s+a\s+note)"
+                              r"(\s+that|\s+this)?(\s+for\s+later)?\s*[:,\-]?\s*", "", message or "", flags=re.I).strip()
+                try:
+                    btmod2.execute("remember", {"text": (fact or message or "")[:2000]})
+                except Exception:
+                    pass
     return (final_text or "").strip(), steps
 
 

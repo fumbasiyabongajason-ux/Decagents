@@ -19,7 +19,7 @@ services:
       - key: LLM_BASE_URL
         value: https://api.groq.com/openai/v1
       - key: LLM_MODEL
-        value: llama-3.3-70b-versatile   # Groq tool-capable model (retires 2026-08-16 -> then qwen/qwen3-32b)
+        value: qwen/qwen3-32b   # Groq reasoning + tool-capable model (current; calls tools more reliably than llama-3.3, native reasoning)
       # --- Tools via Pipedream Connect MCP (managed auth, thousands of apps) ---
       # The app auto-mints + refreshes the Pipedream token from your client id/secret.
       - key: TOOLS_BACKEND
