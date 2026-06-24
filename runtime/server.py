@@ -118,6 +118,24 @@ def run(req: RunRequest, authorization: Optional[str] = Header(default=None)):
     return {"agent": req.agent, "user": user, "response": text}
 
 
+@app.get("/debug/video")
+def debug_video(pw: Optional[str] = None):
+    """TEMP diagnostic — reports whether the app sees the video key and the EXACT related
+    env var NAMES (never values). Gated by the password. Safe to remove after debugging."""
+    if ACCESS_PASSWORD and not hmac.compare_digest(pw or "", ACCESS_PASSWORD):
+        raise HTTPException(401, "add ?pw=YOUR_PASSWORD")
+    g = os.getenv("GEMINI_API_KEY") or ""
+    g2 = os.getenv("GOOGLE_API_KEY") or ""
+    related = sorted(n for n in os.environ
+                     if any(s in n.upper() for s in ("GEMINI", "GOOGLE", "VEO", "_KEY")))
+    return {
+        "gemini_api_key_detected": bool(g.strip()),
+        "gemini_api_key_length": len(g),
+        "google_api_key_detected": bool(g2.strip()),
+        "related_env_var_names": related,
+    }
+
+
 @app.get("/", response_class=HTMLResponse)
 def home():
     """Serve the Decagent Console (the ChatGPT-style chat UI)."""
