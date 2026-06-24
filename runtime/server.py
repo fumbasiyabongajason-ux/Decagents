@@ -50,7 +50,7 @@ app.add_middleware(
 # connected-app (Pipedream/MCP) call can otherwise hang the request forever; the
 # in-loop budget only checks between turns, so one slow turn can overshoot badly.
 # This guarantees /chat returns BEFORE the Console's 115s client abort.
-HARD_TIMEOUT_SEC = float(os.getenv("DECAGENT_HARD_TIMEOUT_SEC", "100"))
+HARD_TIMEOUT_SEC = float(os.getenv("DECAGENT_HARD_TIMEOUT_SEC", "150"))  # room for async video (~1 min)
 _EXECUTOR = concurrent.futures.ThreadPoolExecutor(max_workers=8)
 
 

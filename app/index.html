@@ -351,7 +351,7 @@ async function sendMsg(){
 
   const apiHistory = t.messages.slice(0,-1).map(m=>({role:m.role, content:m.content}));
   const ctrl = new AbortController();
-  const killer = setTimeout(()=>ctrl.abort(), 115000);   // never spin forever
+  const killer = setTimeout(()=>ctrl.abort(), 180000);   // never spin forever (video can take ~a min)
   try{
     const r=await fetch("/chat",{method:"POST",
       headers:{"Content-Type":"application/json","X-Decagent-Password":PW},

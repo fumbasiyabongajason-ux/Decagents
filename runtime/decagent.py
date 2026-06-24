@@ -380,11 +380,14 @@ def _run_openai(agent, message, history, cfg):
                 produced_image = True
 
     # Same for a generated video: make sure the produced clip reaches the user's reply.
+    produced_video = "/media/" in (final_text or "")
     for s in steps:
         if s.get("type") == "tool_result" and s.get("name") == "generate_video":
             mv = re.search(r"\[[^\]]*\]\(/media/[A-Za-z0-9_.\-]+\.mp4\)", s.get("content") or "")
-            if mv and mv.group(0) not in (final_text or ""):
-                final_text = (final_text or "").rstrip() + "\n\n" + mv.group(0)
+            if mv:
+                produced_video = True
+                if mv.group(0) not in (final_text or ""):
+                    final_text = (final_text or "").rstrip() + "\n\n" + mv.group(0)
 
     # Safety net: if the user clearly asked for an image but the model never actually made one
     # (some models just say "I'll create an image" without calling the tool), generate it
@@ -402,6 +405,25 @@ def _run_openai(agent, message, history, cfg):
                 if mt2:
                     steps.append({"type": "tool_result", "name": "generate_image", "content": (img or "")[:1500]})
                     final_text = (final_text or "").rstrip() + "\n\n" + mt2.group(0)
+            except Exception:
+                pass
+
+    # Safety net: user asked for a video but the model never made one -> generate it ourselves.
+    asked_video = re.search(
+        r"\b(make|create|generate|produce|render|animate|want|need|give\s+me|show\s+me)\b"
+        r"[^.?!\n]{0,40}\b(video|clip|animation|animated|advert|advertisement|reel|short\s+film|movie|trailer)\b",
+        message or "", re.I)
+    if asked_video and not produced_video:
+        btv = _import_local("builtin_tools")
+        if btv:
+            try:
+                vid = btv.execute("generate_video", {"prompt": (message or "").strip()[:400]})
+                mv2 = re.search(r"\[[^\]]*\]\(/media/[A-Za-z0-9_.\-]+\.mp4\)", vid or "")
+                if mv2:
+                    steps.append({"type": "tool_result", "name": "generate_video", "content": (vid or "")[:500]})
+                    final_text = (final_text or "").rstrip() + "\n\n" + mv2.group(0)
+                elif vid and vid.strip().startswith("("):
+                    final_text = (final_text or "").rstrip() + "\n\n" + vid.strip()
             except Exception:
                 pass
 
