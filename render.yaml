@@ -19,7 +19,7 @@ services:
       - key: LLM_BASE_URL
         value: https://api.groq.com/openai/v1
       - key: LLM_MODEL
-        value: llama-3.3-70b-versatile   # Groq: cleanest tool-calling for this app (qwen leaks <function> text; gpt-oss emits phantom tools). Retires 2026-08-16.
+        value: llama-3.1-8b-instant   # Groq: 5x free token budget (500k TPD / 14.4k RPD) vs 70b's 100k. Clean Llama tool-calling. Retires 2026-08-16; swap to 70b for max quality.
       # --- Tools via Pipedream Connect MCP (managed auth, thousands of apps) ---
       # The app auto-mints + refreshes the Pipedream token from your client id/secret.
       - key: TOOLS_BACKEND
