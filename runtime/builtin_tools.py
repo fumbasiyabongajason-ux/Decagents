@@ -122,6 +122,59 @@ def _fetch_html(url, max_chars=30000):
     return raw
 
 
+def _templates_module():
+    """Lazy-import the bundled template library (runtime/templates.py), tolerant of both the
+    packaged path and a bare import so it works in every layout."""
+    import importlib
+    for modname in ("runtime.templates", "templates"):
+        try:
+            return importlib.import_module(modname)
+        except Exception:
+            continue
+    return None
+
+
+def _list_templates():
+    """List the ready-made, high-quality site templates for building NEW sites (anything that is
+    NOT the user's own gotitsuperstore.co.za). Returns each template's name + what it suits."""
+    mod = _templates_module()
+    if not mod:
+        return "(template library unavailable)"
+    try:
+        items = mod.names()
+    except Exception as e:
+        return f"(could not list templates: {e})"
+    if not items:
+        return "(no templates found)"
+    lines = ["Ready high-quality templates — pick one with get_template(name), swap in the real "
+             "brand/colors/copy, then publish with create_webpage. Switch templates freely on request:"]
+    for it in items:
+        lines.append(f"- {it.get('name')}: {it.get('desc')}")
+    return "\n".join(lines)
+
+
+def _get_template(name):
+    """Return the full HTML of a named template (see list_templates) so the agent can customize the
+    brand/colors/copy and publish it with create_webpage. For NEW/other sites only — the user's own
+    site uses fetch_html on gotitsuperstore.co.za instead."""
+    mod = _templates_module()
+    if not mod:
+        return "(template library unavailable)"
+    try:
+        html = mod.get(name)
+    except Exception as e:
+        return f"(could not load template: {e})"
+    if not html:
+        avail = ""
+        try:
+            avail = ", ".join(i.get("name", "") for i in mod.names())
+        except Exception:
+            pass
+        return (f"(no template named '{name}'. Available: {avail or 'none'}. "
+                "Call list_templates to see them all.)")
+    return html
+
+
 def _generate_image(prompt, width=1024, height=1024):
     """Text-to-image, keyless & free via Pollinations. Returns a markdown image
     that the agent should include verbatim so the Console renders it inline."""
@@ -477,6 +530,23 @@ TOOLS = [
                            "title": {"type": "string", "description": "optional page title"}},
                        "required": ["html"]}}},
     {"type": "function", "function": {
+        "name": "list_templates",
+        "description": ("List the ready-made, high-quality website templates available for building a "
+                        "NEW site (landing, business, portfolio, restaurant, event). Use this whenever "
+                        "the user wants a website for ANY site that is NOT their own "
+                        "gotitsuperstore.co.za, or asks to 'switch templates' / 'show me other "
+                        "designs'. Returns each template name and what it's best for."),
+        "parameters": {"type": "object", "properties": {}, "required": []}}},
+    {"type": "function", "function": {
+        "name": "get_template",
+        "description": ("Get the full HTML of a named template (from list_templates) to build a NEW "
+                        "site. You then swap in the real brand name, colors, and copy and publish it "
+                        "with create_webpage. Call again with a different name to switch templates."),
+        "parameters": {"type": "object",
+                       "properties": {"name": {"type": "string",
+                           "description": "template name: landing, business, portfolio, restaurant, or event"}},
+                       "required": ["name"]}}},
+    {"type": "function", "function": {
         "name": "dispatch_agents",
         "description": ("Run several specialist agents IN PARALLEL and combine their results. Use for "
                         "big multi-part jobs ('war times') — e.g. research + write + plan at once. "
@@ -502,7 +572,7 @@ TOOLS = [
                        "properties": {"query": {"type": "string", "description": "what to look up"}},
                        "required": ["query"]}}},
 ]
-NAMES = {"web_search", "fetch_url", "fetch_html", "generate_image", "generate_video", "create_webpage", "dispatch_agents", "remember", "recall"}
+NAMES = {"web_search", "fetch_url", "fetch_html", "generate_image", "generate_video", "create_webpage", "list_templates", "get_template", "dispatch_agents", "remember", "recall"}
 
 
 def execute(name, args):
@@ -520,6 +590,10 @@ def execute(name, args):
             return _generate_video(args.get("prompt", ""))
         if name == "create_webpage":
             return _create_webpage(args.get("html", ""), args.get("title", ""))
+        if name == "list_templates":
+            return _list_templates()
+        if name == "get_template":
+            return _get_template(args.get("name", ""))
         if name == "dispatch_agents":
             return _dispatch_agents(args.get("tasks", []))
         if name == "remember":
