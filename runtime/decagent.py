@@ -198,6 +198,22 @@ def _backend_call(agent):
     return via_n8n()
 
 
+def _parse_leaked_tools(content):
+    """Some Groq models (kimi/qwen/gpt-oss) emit tool calls as TEXT in their reply instead of via
+    the tool_calls field — e.g. <function=generate_image>{"prompt": "..."} or
+    <function(web_search)={"query": "..."}</function>. Extract (name, args_dict) pairs so the
+    runtime can run them for real (this is what makes those permanent models usable)."""
+    calls = []
+    for mm in re.finditer(r"<function\s*[=(]\s*([A-Za-z0-9_]+)\s*\)?\s*[>=]*\s*(\{[\s\S]*?\})", content or ""):
+        try:
+            args = json.loads(mm.group(2))
+        except Exception:
+            args = {}
+        if isinstance(args, dict):
+            calls.append((mm.group(1), args))
+    return calls
+
+
 def _get_openai_tools(agent):
     """Build the tool list + a unified handler. Built-in tools (web search, fetch/scrape)
     are ALWAYS available — no connection needed — so agents can research, pull live data,
@@ -210,7 +226,7 @@ def _get_openai_tools(agent):
     backend_tools, backend_call = _backend_call(agent)
     tools = builtin_tools + list(backend_tools or [])
     if not tools:
-        return None, None, []
+        return None, None, [], None
 
     def _call_tool(name, args):
         """Tighten tool calling: up to 3 attempts with backoff on transient failures
@@ -249,7 +265,7 @@ def _get_openai_tools(agent):
             out.append({"role": "tool", "tool_call_id": tc.id, "content": str(content)})
         return out
 
-    return tools, handle, builtin_tools
+    return tools, handle, builtin_tools, _call_tool
 
 
 def _run_openai(agent, message, history, cfg):
@@ -258,7 +274,7 @@ def _run_openai(agent, message, history, cfg):
     except ImportError:
         return "The OpenAI client isn't installed. Run:  pip install openai", []
     client = OpenAI(base_url=cfg["base_url"], api_key=cfg["key"], timeout=30, max_retries=1)
-    tools, handle, builtin_tools = _get_openai_tools(agent)
+    tools, handle, builtin_tools, call_tool = _get_openai_tools(agent)
 
     sys_prompt = agent["system_prompt"] + (
         "\n\n# Operating directive — think, then actually DO it\n"
@@ -381,7 +397,27 @@ def _run_openai(agent, message, history, cfg):
                               "content": (res.get("content") or "")[:1500]})
             messages.extend(results)
             continue
-        final_text = m.content or ""
+        # Leaked tool calls: some models (kimi/qwen/gpt-oss) emit <function=name>{...} as TEXT
+        # instead of via the tool_calls field. Parse them, run them for real, feed the results
+        # back, and continue — this is what makes those (permanent) models usable here.
+        content0 = m.content or ""
+        if call_tool and "<function" in content0:
+            leaked = _parse_leaked_tools(content0)
+            if leaked:
+                messages.append({"role": "assistant", "content": content0})
+                results_txt = []
+                for (lname, largs) in leaked[:4]:
+                    steps.append({"type": "tool_call", "name": lname, "args": json.dumps(largs)[:500]})
+                    res = call_tool(lname, largs)
+                    steps.append({"type": "tool_result", "name": lname, "content": str(res)[:1500]})
+                    results_txt.append(f"[{lname} result]\n{res}")
+                messages.append({"role": "user",
+                                 "content": ("Tool results below. Now write your FINAL answer to the "
+                                             "user using them — include any image/video/page markdown "
+                                             "link verbatim, and do NOT output another <function...> "
+                                             "call.\n\n" + "\n\n".join(results_txt))})
+                continue
+        final_text = content0
         break
 
     # Surface reasoning to the Console trace WITHOUT ever blanking the reply. Lift any
@@ -401,6 +437,10 @@ def _run_openai(agent, message, history, cfg):
     if not answer:                               # never return blank
         answer = (tm.group(1).strip() if tm else raw.replace("<think>", "").replace("</think>", "").strip())
     final_text = answer or "(No answer was produced — please try again.)"
+    # Safety: strip any residual leaked tool-call syntax so the user never sees <function=...>.
+    if "<function" in (final_text or ""):
+        final_text = re.sub(r"<function\s*[=(][\s\S]*?\}\s*(?:</function>)?", "", final_text or "").strip()
+        final_text = final_text or "(Working on it — please try again.)"
 
     # Models frequently call generate_image but forget to paste the returned image into
     # their reply ("Here's your poster!" with no link). Guarantee it reaches the user by

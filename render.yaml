@@ -19,9 +19,9 @@ services:
       - key: LLM_BASE_URL
         value: https://api.groq.com/openai/v1
       - key: LLM_MODEL
-        value: llama-3.3-70b-versatile   # ONLY Groq model with clean tool-calling for this app (kimi/qwen leak <function> text; gpt-oss emits phantom tools). Deprecates 2026-08-16 — permanent fix = server-side parser for leaked tool calls (TODO) to unlock kimi.
+        value: moonshotai/kimi-k2-instruct   # PERMANENT (not in Aug-2026 deprecation). Its leaked <function=...> tool calls are now parsed & executed server-side, so tools work. Fast + agentic.
       - key: LLM_FALLBACK_MODEL
-        value: llama-3.1-8b-instant          # auto-fallback on 429
+        value: llama-3.3-70b-versatile       # fallback on 429 (clean tool-calling; works until Aug 16)
       # --- Tools via Pipedream Connect MCP (managed auth, thousands of apps) ---
       # The app auto-mints + refreshes the Pipedream token from your client id/secret.
       - key: TOOLS_BACKEND
