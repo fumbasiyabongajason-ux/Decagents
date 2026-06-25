@@ -340,6 +340,8 @@ def _run_openai(agent, message, history, cfg):
     import time
     deadline = time.time() + float(os.getenv("DECAGENT_BUDGET_SEC", "70"))
     steps, final_text = [], ""
+    seen_results = set()      # (tool_name, result_content) already received — detect spinning
+    tool_call_counts = {}     # how many times each tool was called — longstop on hammering one
     for _ in range(MAX_TURNS):
         if time.time() > deadline:   # never hang — return whatever we have
             if not final_text:
@@ -395,13 +397,24 @@ def _run_openai(agent, message, history, cfg):
                 steps.append({"type": "tool_call", "name": tc.function.name,
                               "args": tc.function.arguments or ""})
                 idname[tc.id] = tc.function.name
+                tool_call_counts[tc.function.name] = tool_call_counts.get(tc.function.name, 0) + 1
             messages.append(m.model_dump(exclude_none=True))
             results = handle(resp)
+            new_info = False
             for res in results:
-                steps.append({"type": "tool_result",
-                              "name": idname.get(res.get("tool_call_id"), ""),
-                              "content": (res.get("content") or "")[:1500]})
+                nm = idname.get(res.get("tool_call_id"), "")
+                content = res.get("content") or ""
+                steps.append({"type": "tool_result", "name": nm, "content": content[:1500]})
+                if (nm, content) not in seen_results:
+                    seen_results.add((nm, content))
+                    new_info = True
             messages.extend(results)
+            # Anti-spin: if this turn produced NO new information (the model re-ran a tool it had
+            # already run, getting the same result) or it has hammered one tool too many times,
+            # stop looping and synthesize the answer from what we already have — never burn the
+            # whole budget repeating a tool and then returning "(No answer was produced)".
+            if (not new_info) or any(c >= 4 for c in tool_call_counts.values()):
+                break
             continue
         # Leaked tool calls: some models (kimi/qwen/gpt-oss) emit <function=name>{...} as TEXT
         # instead of via the tool_calls field. Parse them, run them for real, feed the results
@@ -425,6 +438,24 @@ def _run_openai(agent, message, history, cfg):
                 continue
         final_text = content0
         break
+
+    # If tools ran but the model never wrote a final answer (it kept calling tools, spun, or hit
+    # the turn cap), force ONE completion with NO tools so the user ALWAYS gets a real reply built
+    # from the results already gathered — instead of "(No answer was produced)".
+    if not (final_text or "").strip() and any(s.get("type") == "tool_result" for s in steps):
+        messages.append({"role": "user", "content": (
+            "You now have all the tool results you need above. Write your FINAL answer to the user "
+            "now, in clear plain text — do NOT call or mention any more tools. Include any image/"
+            "video/page markdown link from the results verbatim so it renders for the user.")})
+        _fb2 = (os.getenv("LLM_FALLBACK_MODEL") or "").strip()
+        for _mdl in [cfg["model"]] + ([_fb2] if _fb2 and _fb2 != cfg["model"] else []):
+            try:
+                _fr = client.chat.completions.create(model=_mdl, messages=messages)
+                final_text = (_fr.choices[0].message.content or "").strip()
+                if final_text:
+                    break
+            except Exception:
+                continue
 
     # Surface reasoning to the Console trace WITHOUT ever blanking the reply. Lift any
     # <think>...</think> into a reasoning step; if stripping it would leave an empty answer
