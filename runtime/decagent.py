@@ -204,7 +204,7 @@ def _parse_leaked_tools(content):
     <function(web_search)={"query": "..."}</function>. Extract (name, args_dict) pairs so the
     runtime can run them for real (this is what makes those permanent models usable)."""
     calls = []
-    for mm in re.finditer(r"<function\s*[=(]\s*([A-Za-z0-9_]+)\s*\)?\s*[>=]*\s*(\{[\s\S]*?\})", content or ""):
+    for mm in re.finditer(r"<function[\s=(/]*([A-Za-z0-9_]+)\s*[)>=/]*\s*(\{[\s\S]*?\})", content or ""):
         try:
             args = json.loads(mm.group(2))
         except Exception:
@@ -439,7 +439,7 @@ def _run_openai(agent, message, history, cfg):
     final_text = answer or "(No answer was produced — please try again.)"
     # Safety: strip any residual leaked tool-call syntax so the user never sees <function=...>.
     if "<function" in (final_text or ""):
-        final_text = re.sub(r"<function\s*[=(][\s\S]*?\}\s*(?:</function>)?", "", final_text or "").strip()
+        final_text = re.sub(r"<function[\s=(/][\s\S]{0,600}?\}\s*/?\s*>?\s*(?:</function>)?", "", final_text or "").strip()
         final_text = final_text or "(Working on it — please try again.)"
 
     # Models frequently call generate_image but forget to paste the returned image into
