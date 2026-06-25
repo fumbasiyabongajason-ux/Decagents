@@ -48,24 +48,31 @@ def _web_search(query, max_results=6):
     return "(no results — for reliable cloud search, set a free TAVILY_API_KEY)"
 
 
-def _fetch_url(url, max_chars=6000):
-    import requests, ipaddress, socket
+def _ssrf_ok(url):
+    """Block obviously-internal targets (localhost, private/reserved IP literals, cloud-metadata,
+    *.local / *.internal) WITHOUT resolving DNS — so it works in proxied environments and never
+    false-blocks a normal public website."""
+    import ipaddress
     from urllib.parse import urlparse
+    host = (urlparse(url).hostname or "").strip("[]").lower()
+    if not host:
+        return False
+    if host == "localhost" or host.endswith(".local") or host.endswith(".internal") or "metadata" in host:
+        return False
+    try:
+        ip = ipaddress.ip_address(host)   # host is a raw IP literal
+        return not (ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
+                    or ip.is_multicast or ip.is_unspecified)
+    except ValueError:
+        return True   # ordinary hostname -> allow (requests/proxy resolves it)
+
+
+def _fetch_url(url, max_chars=6000):
+    import requests
     if not re.match(r"^https?://", url or ""):
         url = "https://" + (url or "")
-    # SSRF guard: only fetch public http(s) hosts. Block localhost, private/link-local,
-    # reserved, and cloud-metadata addresses so a prompted agent can't reach internal services.
-    host = (urlparse(url).hostname or "").strip("[]")
-    if not host:
-        return "(invalid URL)"
-    try:
-        for info in socket.getaddrinfo(host, None):
-            ip = ipaddress.ip_address(info[4][0])
-            if (ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
-                    or ip.is_multicast or ip.is_unspecified):
-                return "(blocked: that URL resolves to a private/internal address)"
-    except Exception:
-        return "(could not resolve that URL)"
+    if not _ssrf_ok(url):
+        return "(blocked: that URL points to a private/internal address)"
     # Stream with a hard byte cap so a huge/endless page can't exhaust memory.
     try:
         with requests.get(url, headers={"User-Agent": "Mozilla/5.0 (compatible; Decagent/1.0)"},
@@ -90,22 +97,12 @@ def _fetch_url(url, max_chars=6000):
 def _fetch_html(url, max_chars=30000):
     """Fetch the RAW HTML of a page so an agent can use it as a TEMPLATE to edit/rebuild.
     SSRF-guarded + size-capped. After editing, the agent publishes via create_webpage."""
-    import requests, ipaddress, socket
-    from urllib.parse import urlparse
+    import requests
     u = (url or "").strip()
     if not re.match(r"^https?://", u):
         u = "https://" + u
-    host = (urlparse(u).hostname or "").strip("[]")
-    if not host:
-        return "(invalid URL)"
-    try:
-        for info in socket.getaddrinfo(host, None):
-            ip = ipaddress.ip_address(info[4][0])
-            if (ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
-                    or ip.is_multicast or ip.is_unspecified):
-                return "(blocked: that URL resolves to a private/internal address)"
-    except Exception:
-        return "(could not resolve that URL)"
+    if not _ssrf_ok(u):
+        return "(blocked: that URL points to a private/internal address)"
     try:
         with requests.get(u, headers={"User-Agent": "Mozilla/5.0 (compatible; Decagent/1.0)"},
                           timeout=20, stream=True) as r:
@@ -499,7 +496,7 @@ TOOLS = [
                        "properties": {"query": {"type": "string", "description": "what to look up"}},
                        "required": ["query"]}}},
 ]
-NAMES = {"web_search", "fetch_url", "generate_image", "generate_video", "create_webpage", "dispatch_agents", "remember", "recall"}
+NAMES = {"web_search", "fetch_url", "fetch_html", "generate_image", "generate_video", "create_webpage", "dispatch_agents", "remember", "recall"}
 
 
 def execute(name, args):
