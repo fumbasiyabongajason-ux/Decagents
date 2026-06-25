@@ -154,6 +154,21 @@ def page(pid: str):
     return FileResponse(path, media_type="text/html", headers={"Cache-Control": "no-store"})
 
 
+@app.get("/debug/video")
+def debug_video(pw: Optional[str] = None):
+    """TEMP — reports which video keys the app actually sees (NEVER the values). Remove after."""
+    if ACCESS_PASSWORD and not hmac.compare_digest(pw or "", ACCESS_PASSWORD):
+        raise HTTPException(401, "add ?pw=YOUR_PASSWORD")
+    pol = os.getenv("POLLINATIONS_API_KEY") or os.getenv("POLLINATIONS_TOKEN") or ""
+    gem = os.getenv("GEMINI_API_KEY") or ""
+    related = sorted(n for n in os.environ
+                     if any(s in n.upper() for s in ("POLLINAT", "GEMINI", "GOOGLE", "VEO")))
+    return {"pollinations_key_detected": bool(pol.strip()), "pollinations_key_len": len(pol),
+            "pollinations_key_prefix": (pol.strip()[:3] if pol.strip() else ""),
+            "gemini_key_detected": bool(gem.strip()),
+            "related_env_var_names": related}
+
+
 @app.get("/", response_class=HTMLResponse)
 def home():
     """Serve the Decagent Console (the ChatGPT-style chat UI)."""

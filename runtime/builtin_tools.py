@@ -204,10 +204,14 @@ def _generate_video(prompt):
                 with open(os.path.join("/tmp/dgmedia", pname), "wb") as f:
                     f.write(pr.content)
                 return f"[▶ Watch the generated video](/media/{pname})"
+            # Pollinations responded but not with a video — report clearly; do NOT silently use Veo.
+            if pr.status_code == 401:
+                return "(Pollinations key invalid — set POLLINATIONS_API_KEY (the sk_ key from enter.pollinations.ai))"
             if pr.status_code in (402, 403):
-                return "(Pollinations video credits exhausted — top up at enter.pollinations.ai.)"
-        except Exception:
-            pass  # fall through to Veo
+                return "(Pollinations video credits exhausted — top up at enter.pollinations.ai)"
+            return f"(Pollinations video error {pr.status_code}: {(pr.text or '')[:140]})"
+        except Exception as e:
+            return f"(could not reach Pollinations video: {e})"
 
     # Option 2 — Google Veo (needs GEMINI_API_KEY; Veo itself requires billing on the project).
     key = _gemini_key()
