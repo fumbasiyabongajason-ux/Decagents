@@ -19,9 +19,9 @@ services:
       - key: LLM_BASE_URL
         value: https://api.groq.com/openai/v1
       - key: LLM_MODEL
-        value: moonshotai/kimi-k2-instruct   # PERMANENT (not in Aug-2026 deprecation). Its leaked <function=...> tool calls are now parsed & executed server-side, so tools work. Fast + agentic.
+        value: llama-3.3-70b-versatile   # best ANSWER QUALITY + clean tools (good til Aug 16). The leaked-tool-call parser is now shipped, so switching to a permanent model later is leak-safe — pick the best-quality permanent one closer to Aug.
       - key: LLM_FALLBACK_MODEL
-        value: llama-3.3-70b-versatile       # fallback on 429 (clean tool-calling; works until Aug 16)
+        value: llama-3.1-8b-instant          # fallback on 429
       # --- Tools via Pipedream Connect MCP (managed auth, thousands of apps) ---
       # The app auto-mints + refreshes the Pipedream token from your client id/secret.
       - key: TOOLS_BACKEND
