@@ -301,10 +301,12 @@ def _run_openai(agent, message, history, cfg):
             "edit that real HTML to match their existing design, then create_webpage. (b) For ANY "
             "OTHER / new site (a business, portfolio, restaurant, event, landing page, a site for "
             "someone else, etc.), use the ready template library: call list_templates to see the "
-            "options, get_template(name) to load one, swap in the real brand/colors/copy, then "
-            "create_webpage. If they say 'switch the template', 'show another design', or 'try a "
-            "different style', call get_template with a different name and rebuild — never reuse "
-            "gotitsuperstore for a site that isn't theirs. You produce full professional deliverables — "
+            "options and each template's fields, then call build_site with the template name and a "
+            "fields object of the REAL brand/menu/copy — the server renders the full professionally-"
+            "styled template and returns the live link, so you do NOT write or paste any HTML. If they "
+            "say 'switch the template', 'show another design', or 'try a different style', call "
+            "build_site again with a different template name — never reuse gotitsuperstore for a site "
+            "that isn't theirs. You produce full professional deliverables — "
             "websites, CVs/resumes, business plans, books, reports — always COMPLETE and high quality, "
             "and you publish the visual ones with create_webpage and share the link. When asked to remember/note/save something, you "
             "MUST call remember. When asked to do several things at once or 'in parallel', you MUST "
@@ -543,7 +545,7 @@ def _run_openai(agent, message, history, cfg):
     # hallucinated ones, and publish the model's inline HTML if it wrote some.
     real_pages = []
     for s in steps:
-        if s.get("type") == "tool_result" and s.get("name") == "create_webpage":
+        if s.get("type") == "tool_result" and s.get("name") in ("create_webpage", "build_site"):
             mp = re.search(r"/p/[A-Za-z0-9_\-]+", s.get("content") or "")
             if mp:
                 real_pages.append(mp.group(0))

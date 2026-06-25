@@ -136,7 +136,8 @@ def _templates_module():
 
 def _list_templates():
     """List the ready-made, high-quality site templates for building NEW sites (anything that is
-    NOT the user's own gotitsuperstore.co.za). Returns each template's name + what it suits."""
+    NOT the user's own gotitsuperstore.co.za). Returns each template's name, what it suits, and the
+    text fields you can fill via build_site."""
     mod = _templates_module()
     if not mod:
         return "(template library unavailable)"
@@ -146,33 +147,47 @@ def _list_templates():
         return f"(could not list templates: {e})"
     if not items:
         return "(no templates found)"
-    lines = ["Ready high-quality templates — pick one with get_template(name), swap in the real "
-             "brand/colors/copy, then publish with create_webpage. Switch templates freely on request:"]
+    lines = ["Ready high-quality templates. To build a site, call build_site(template, fields) — the "
+             "server renders the FULL styled template and returns a live link; you only supply the "
+             "text. Any field you omit uses a tasteful default. Switch designs by choosing another "
+             "template name.\n"]
     for it in items:
-        lines.append(f"- {it.get('name')}: {it.get('desc')}")
+        flds = ", ".join(it.get("fields") or [])
+        lines.append(f"• {it.get('name')} — {it.get('desc')}\n    fields: {flds}")
     return "\n".join(lines)
 
 
-def _get_template(name):
-    """Return the full HTML of a named template (see list_templates) so the agent can customize the
-    brand/colors/copy and publish it with create_webpage. For NEW/other sites only — the user's own
-    site uses fetch_html on gotitsuperstore.co.za instead."""
+def _build_site(template, title="", fields=None):
+    """Render a chosen template's FULL styled HTML on the SERVER (filling the supplied text fields,
+    defaulting the rest) and publish it to a live /p/ URL. The agent never has to re-emit the big
+    template HTML, so the styling is always preserved. For NEW/other sites; the user's own site is
+    edited via fetch_html on gotitsuperstore.co.za instead."""
     mod = _templates_module()
     if not mod:
         return "(template library unavailable)"
+    name = (template or "").strip().lower()
+    # `fields` may arrive as a dict, or as a JSON string (some models pass it stringified).
+    if isinstance(fields, str):
+        s = fields.strip()
+        try:
+            fields = _json.loads(s) if s else {}
+        except Exception:
+            fields = {}
+    if not isinstance(fields, dict):
+        fields = {}
     try:
-        html = mod.get(name)
+        html = mod.render(name, fields)
     except Exception as e:
-        return f"(could not load template: {e})"
+        return f"(could not render template: {e})"
     if not html:
         avail = ""
         try:
             avail = ", ".join(i.get("name", "") for i in mod.names())
         except Exception:
             pass
-        return (f"(no template named '{name}'. Available: {avail or 'none'}. "
-                "Call list_templates to see them all.)")
-    return html
+        return (f"(no template named '{template}'. Available: {avail or 'none'}. "
+                "Call list_templates to see them and their fields.)")
+    return _create_webpage(html, title or name)
 
 
 def _generate_image(prompt, width=1024, height=1024):
@@ -531,21 +546,32 @@ TOOLS = [
                        "required": ["html"]}}},
     {"type": "function", "function": {
         "name": "list_templates",
-        "description": ("List the ready-made, high-quality website templates available for building a "
-                        "NEW site (landing, business, portfolio, restaurant, event). Use this whenever "
-                        "the user wants a website for ANY site that is NOT their own "
-                        "gotitsuperstore.co.za, or asks to 'switch templates' / 'show me other "
-                        "designs'. Returns each template name and what it's best for."),
+        "description": ("List the ready-made, high-quality website templates for building a NEW site "
+                        "(landing, business, portfolio, restaurant, event) and the text fields each "
+                        "one accepts. Use this whenever the user wants a website for ANY site that is "
+                        "NOT their own gotitsuperstore.co.za, or asks to 'switch templates' / 'show "
+                        "other designs'. After this, call build_site to publish one."),
         "parameters": {"type": "object", "properties": {}, "required": []}}},
     {"type": "function", "function": {
-        "name": "get_template",
-        "description": ("Get the full HTML of a named template (from list_templates) to build a NEW "
-                        "site. You then swap in the real brand name, colors, and copy and publish it "
-                        "with create_webpage. Call again with a different name to switch templates."),
+        "name": "build_site",
+        "description": ("Build and publish a NEW site from a ready template and get a LIVE link. The "
+                        "SERVER renders the full, professionally-styled template for you — you do NOT "
+                        "write or paste HTML. Just pass the template name and a 'fields' object of the "
+                        "real text (brand, headline, services/menu items, contact, etc.; see "
+                        "list_templates for each template's fields). Any field you omit uses a "
+                        "tasteful default. To switch designs, call again with a different template. "
+                        "Use this for every site that is NOT the user's own gotitsuperstore.co.za."),
         "parameters": {"type": "object",
-                       "properties": {"name": {"type": "string",
-                           "description": "template name: landing, business, portfolio, restaurant, or event"}},
-                       "required": ["name"]}}},
+                       "properties": {
+                           "template": {"type": "string",
+                               "description": "template name: landing, business, portfolio, restaurant, or event"},
+                           "title": {"type": "string", "description": "optional browser-tab title"},
+                           "fields": {"type": "string",
+                               "description": ("a JSON object (as a string) of the text to fill, e.g. "
+                                               "'{\"BRAND\":\"Dawn Roasters\",\"HERO_TITLE\":\"Cape Town's "
+                                               "morning ritual\"}'. Keys are field names from "
+                                               "list_templates; omitted ones use tasteful defaults.")}},
+                       "required": ["template"]}}},
     {"type": "function", "function": {
         "name": "dispatch_agents",
         "description": ("Run several specialist agents IN PARALLEL and combine their results. Use for "
@@ -572,7 +598,7 @@ TOOLS = [
                        "properties": {"query": {"type": "string", "description": "what to look up"}},
                        "required": ["query"]}}},
 ]
-NAMES = {"web_search", "fetch_url", "fetch_html", "generate_image", "generate_video", "create_webpage", "list_templates", "get_template", "dispatch_agents", "remember", "recall"}
+NAMES = {"web_search", "fetch_url", "fetch_html", "generate_image", "generate_video", "create_webpage", "list_templates", "build_site", "dispatch_agents", "remember", "recall"}
 
 
 def execute(name, args):
@@ -592,8 +618,8 @@ def execute(name, args):
             return _create_webpage(args.get("html", ""), args.get("title", ""))
         if name == "list_templates":
             return _list_templates()
-        if name == "get_template":
-            return _get_template(args.get("name", ""))
+        if name == "build_site":
+            return _build_site(args.get("template", ""), args.get("title", ""), args.get("fields"))
         if name == "dispatch_agents":
             return _dispatch_agents(args.get("tasks", []))
         if name == "remember":
