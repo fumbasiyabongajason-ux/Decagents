@@ -196,7 +196,7 @@ def _generate_video(prompt):
         try:
             pmodel = os.getenv("POLLINATIONS_VIDEO_MODEL", "wan-fast")
             purl = (f"https://gen.pollinations.ai/video/{urllib.parse.quote(p, safe='')}"
-                    f"?model={pmodel}&audio=true")
+                    f"?model={pmodel}&audio=true&key={urllib.parse.quote(pk, safe='')}")
             pr = requests.get(purl, headers={"Authorization": f"Bearer {pk}"}, timeout=120)
             if pr.ok and pr.content and "video" in (pr.headers.get("Content-Type") or "").lower():
                 os.makedirs("/tmp/dgmedia", exist_ok=True)
@@ -205,10 +205,12 @@ def _generate_video(prompt):
                     f.write(pr.content)
                 return f"[▶ Watch the generated video](/media/{pname})"
             # Pollinations responded but not with a video — report clearly; do NOT silently use Veo.
-            if pr.status_code == 401:
-                return "(Pollinations key invalid — set POLLINATIONS_API_KEY (the sk_ key from enter.pollinations.ai))"
-            if pr.status_code in (402, 403):
-                return "(Pollinations video credits exhausted — top up at enter.pollinations.ai)"
+            if pr.status_code in (401, 403):
+                return ("(Pollinations rejected the video request (HTTP %d) — the key may be wrong, or "
+                        "your free tier/credits don't cover video models. Check enter.pollinations.ai.)"
+                        % pr.status_code)
+            if pr.status_code == 402:
+                return "(Pollinations video needs credits — top up at enter.pollinations.ai)"
             return f"(Pollinations video error {pr.status_code}: {(pr.text or '')[:140]})"
         except Exception as e:
             return f"(could not reach Pollinations video: {e})"

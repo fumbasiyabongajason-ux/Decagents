@@ -19,9 +19,9 @@ services:
       - key: LLM_BASE_URL
         value: https://api.groq.com/openai/v1
       - key: LLM_MODEL
-        value: llama-3.3-70b-versatile   # Groq primary: 12k TPM (2x the 8b) = fewer intermittent 429s; 100k TPD. Retires 2026-08-16.
+        value: moonshotai/kimi-k2-instruct   # PERMANENT (not in the Aug-2026 Groq deprecation); strong agentic tool-calling; 10k TPM / 300k TPD on Groq free
       - key: LLM_FALLBACK_MODEL
-        value: llama-3.1-8b-instant      # auto-fallback when the primary rate-limits (separate per-model budget = far fewer "no response")
+        value: llama-3.1-8b-instant          # auto-fallback on 429 (works until Aug 16 — swap to a permanent model before then)
       # --- Tools via Pipedream Connect MCP (managed auth, thousands of apps) ---
       # The app auto-mints + refreshes the Pipedream token from your client id/secret.
       - key: TOOLS_BACKEND
