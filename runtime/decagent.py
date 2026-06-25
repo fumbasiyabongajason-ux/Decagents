@@ -294,7 +294,12 @@ def _run_openai(agent, message, history, cfg):
             "from what the results actually say. NEVER invent or guess URLs, links, figures, quotes, "
             "or sources — a fabricated link or made-up fact is a serious failure. Only share a link a "
             "tool actually returned to you. If the tools don't give you the answer, say so plainly "
-            "instead of making something up."
+            "instead of making something up.\n"
+            "6. COPILOT on connected platforms. Act on the user's connected apps for real — GitHub/"
+            "GitLab (read & write code, commit, open and review pull requests, manage issues/branches), "
+            "plus Slack, Notion, Jira, Trello, Linear, Google Drive/Docs/Sheets, Stripe and more — "
+            "using their tools, like a hands-on copilot. Do the actual action when asked; if a needed "
+            "app isn't connected yet, tell the user to link it at /connect and say which one."
         )
     # Remind the agent of recent long-term memories so it doesn't forget past work.
     _bt0 = _import_local("builtin_tools")

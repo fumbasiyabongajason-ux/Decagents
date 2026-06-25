@@ -42,6 +42,6 @@ services:
       - key: PIPEDREAM_PROJECT_ID
         sync: false                 # proj_xxxxx
       - key: MCP_APP_SLUGS
-        value: gmail,google_sheets,google_docs,google_calendar,github,slack,notion,airtable,twitter,linkedin,instagram,facebook_pages,reddit,youtube,discord,wordpress,telegram_bot_api   # apps exposed to every agent (edit anytime; bad/unconnected ones are skipped safely). ANY of Pipedream's ~2,700 apps works — add its slug here, then connect it at /connect.
+        value: github,gitlab,slack,notion,jira,trello,linear,stripe,gmail,google_drive,google_sheets,google_docs,google_calendar,airtable,twitter,linkedin,wordpress,instagram,facebook_pages,reddit,youtube,discord,telegram_bot_api   # github + dev/work platforms first (copilot), then the rest. Bad/unconnected slugs are skipped safely. ANY of Pipedream's ~2,700 apps works — add its slug, then connect at /connect.
       - key: MCP_MAX_TOOLS
-        value: "50"                 # max app tools shown to the model at once (smaller = faster + less chance a strict provider rejects the tool payload; raise/lower to taste)
+        value: "64"                 # how many app tools to expose at once (raised for the broader platform set; the built-in-only fallback handles any provider that rejects a tool schema)
