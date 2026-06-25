@@ -87,6 +87,44 @@ def _fetch_url(url, max_chars=6000):
     return text[:max_chars] or "(no readable text on page)"
 
 
+def _fetch_html(url, max_chars=30000):
+    """Fetch the RAW HTML of a page so an agent can use it as a TEMPLATE to edit/rebuild.
+    SSRF-guarded + size-capped. After editing, the agent publishes via create_webpage."""
+    import requests, ipaddress, socket
+    from urllib.parse import urlparse
+    u = (url or "").strip()
+    if not re.match(r"^https?://", u):
+        u = "https://" + u
+    host = (urlparse(u).hostname or "").strip("[]")
+    if not host:
+        return "(invalid URL)"
+    try:
+        for info in socket.getaddrinfo(host, None):
+            ip = ipaddress.ip_address(info[4][0])
+            if (ip.is_private or ip.is_loopback or ip.is_link_local or ip.is_reserved
+                    or ip.is_multicast or ip.is_unspecified):
+                return "(blocked: that URL resolves to a private/internal address)"
+    except Exception:
+        return "(could not resolve that URL)"
+    try:
+        with requests.get(u, headers={"User-Agent": "Mozilla/5.0 (compatible; Decagent/1.0)"},
+                          timeout=20, stream=True) as r:
+            chunks, total = [], 0
+            for chunk in r.iter_content(chunk_size=65536):
+                if not chunk:
+                    continue
+                chunks.append(chunk)
+                total += len(chunk)
+                if total >= 800000:
+                    break
+            raw = b"".join(chunks).decode(r.encoding or "utf-8", "replace")
+    except Exception as e:
+        return f"(could not fetch page: {e})"
+    if len(raw) > max_chars:
+        raw = raw[:max_chars] + "\n<!-- ...truncated: you have enough of the template's structure & styling to rebuild/edit -->"
+    return raw
+
+
 def _generate_image(prompt, width=1024, height=1024):
     """Text-to-image, keyless & free via Pollinations. Returns a markdown image
     that the agent should include verbatim so the Console renders it inline."""
@@ -397,6 +435,14 @@ TOOLS = [
                        "properties": {"url": {"type": "string", "description": "the page URL"}},
                        "required": ["url"]}}},
     {"type": "function", "function": {
+        "name": "fetch_html",
+        "description": ("Fetch the RAW HTML source of a page to use as a TEMPLATE you can edit/"
+                        "rebuild. Use when the user says 'edit my site', 'use my template', or gives "
+                        "a site to base a page on. After editing the HTML, call create_webpage to publish."),
+        "parameters": {"type": "object",
+                       "properties": {"url": {"type": "string", "description": "the page URL to pull as a template"}},
+                       "required": ["url"]}}},
+    {"type": "function", "function": {
         "name": "generate_image",
         "description": ("Generate an image from a text prompt (free, no key). Use when the user "
                         "asks for a picture, logo, artwork, cover, thumbnail, poster, or any visual. "
@@ -462,6 +508,8 @@ def execute(name, args):
             return _web_search(args.get("query", ""))
         if name == "fetch_url":
             return _fetch_url(args.get("url", ""))
+        if name == "fetch_html":
+            return _fetch_html(args.get("url", ""))
         if name == "generate_image":
             return _generate_image(args.get("prompt", ""),
                                    args.get("width", 1024), args.get("height", 1024))
