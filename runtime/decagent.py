@@ -344,6 +344,14 @@ def _run_openai(agent, message, history, cfg):
     steps, final_text = [], ""
     seen_results = set()      # (tool_name, result_content) already received — detect spinning
     tool_call_counts = {}     # how many times each tool was called — longstop on hammering one
+    # Does the user want a NEW site built (not editing their own gotitsuperstore site)? If so and the
+    # model browses templates but forgets to actually publish, we nudge it once to call build_site.
+    _ml = (message or "").lower()
+    wants_new_site = (bool(re.search(r"\b(build|make|create|design|generate|need|want|switch)\b"
+                                     r"[^.?!\n]{0,40}\b(web\s?page|landing\s+page|website|site|template)\b", _ml))
+                      and "gotitsuperstore" not in _ml
+                      and not re.search(r"\bmy\s+(own\s+)?(site|website|web\s?page)\b", _ml))
+    nudged_build = False
     for _ in range(MAX_TURNS):
         if time.time() > deadline:   # never hang — return whatever we have
             if not final_text:
@@ -438,6 +446,20 @@ def _run_openai(agent, message, history, cfg):
                                              "link verbatim, and do NOT output another <function...> "
                                              "call.\n\n" + "\n\n".join(results_txt))})
                 continue
+        # Build follow-through: the user wants a new site and the model browsed templates
+        # (list_templates) but is about to answer WITHOUT publishing (no build_site, no real link).
+        # Nudge it ONCE to actually call build_site so a site request reliably ends in a live page.
+        if (wants_new_site and not nudged_build
+                and any(s.get("name") == "list_templates" for s in steps)
+                and not any(s.get("name") == "build_site" for s in steps)
+                and "/p/" not in content0):
+            nudged_build = True
+            messages.append({"role": "assistant", "content": content0})
+            messages.append({"role": "user", "content": (
+                "Now ACTUALLY publish it: call the build_site tool with the chosen template and a "
+                "fields object of the real text (brand, headline, menu/services, contact). Don't just "
+                "describe it — call build_site so the user gets the live link.")})
+            continue
         final_text = content0
         break
 
