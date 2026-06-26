@@ -575,6 +575,19 @@ def _run_openai(agent, message, history, cfg):
         final_text = re.sub(r"/p/[A-Za-z0-9_\-]+",
                             lambda m: m.group(0) if m.group(0) in real_pages else "", final_text or "")
         final_text = re.sub(r"\[[^\]]*\]\(\s*\)", "", final_text or "")   # clean empty link shells
+    # When we DID publish a real page, the only valid address is that /p/ link. Models sometimes also
+    # claim the site is "live at https://madeupdomain.com" — a fabricated URL that 404s for the user.
+    # Neutralise those "live/available/hosted/deployed/visit at <external-url>" claims so the user is
+    # pointed ONLY at the real link. Scoped to the build case, so research links elsewhere are untouched.
+    if real_pages:
+        final_text = re.sub(
+            r"(?i)\b(?:is\s+|now\s+)*(?:live|available|hosted|deployed|published|online|up\s+and\s+running)\s+"
+            r"(?:at|on)\s+\[?https?://[^\s)\]]+\]?(?:\([^)]*\))?",
+            "is live — see the link below", final_text or "")
+        final_text = re.sub(
+            r"(?i)\b(?:you\s+can\s+)?(?:visit|find|see|access|view)\s+(?:it|the\s+(?:site|website|page))?\s*"
+            r"(?:at|on|here:?)\s+\[?https?://[^\s)\]]+\]?(?:\([^)]*\))?",
+            "see the link below", final_text or "")
     # Make sure every REAL page link is shown.
     for link in real_pages:
         if link not in (final_text or ""):
