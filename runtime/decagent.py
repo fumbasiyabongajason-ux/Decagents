@@ -575,19 +575,35 @@ def _run_openai(agent, message, history, cfg):
         final_text = re.sub(r"/p/[A-Za-z0-9_\-]+",
                             lambda m: m.group(0) if m.group(0) in real_pages else "", final_text or "")
         final_text = re.sub(r"\[[^\]]*\]\(\s*\)", "", final_text or "")   # clean empty link shells
-    # When we DID publish a real page, the only valid address is that /p/ link. Models sometimes also
-    # claim the site is "live at https://madeupdomain.com" — a fabricated URL that 404s for the user.
-    # Neutralise those "live/available/hosted/deployed/visit at <external-url>" claims so the user is
-    # pointed ONLY at the real link. Scoped to the build case, so research links elsewhere are untouched.
+    # When we DID publish a real page, the ONLY valid address is that /p/ link. Models sometimes also
+    # paste a fabricated domain — "live at https://madeup.com", or just a bare URL on its own line —
+    # that 404s for the user. So in this build reply, strip every EXTERNAL http(s) URL except a
+    # generated image (pollinations) or one of our own /media files, so the user is never handed a
+    # made-up address. Relative /p/ and /media links (and the real page link) are untouched.
     if real_pages:
+        def _keep_url(u):
+            ul = (u or "").lower()
+            return ("pollinations.ai" in ul) or ("/media/" in ul)
+        # URL pattern that does NOT swallow a trailing sentence punctuation (., ! etc.) so grammar stays intact.
+        _U = r"https?://[^\s)\]]*[^\s)\].,;:!?]"
+        # 1) Remove "is live/available/hosted/… at <fabricated-url>" as a clean grammatical unit.
         final_text = re.sub(
-            r"(?i)\b(?:is\s+|now\s+)*(?:live|available|hosted|deployed|published|online|up\s+and\s+running)\s+"
-            r"(?:at|on)\s+\[?https?://[^\s)\]]+\]?(?:\([^)]*\))?",
-            "is live — see the link below", final_text or "")
+            r"(?i)\b((?:is\s+|now\s+)*)(?:live|available|hosted|deployed|published|online|up\s+and\s+running)\s+"
+            r"(?:at|on)\s+\[?(" + _U + r")\]?(?:\([^)]*\))?",
+            lambda m: (m.group(1) + "live") if not _keep_url(m.group(2)) else m.group(0), final_text or "")
+        # …and "visit / find / see it at <fabricated-url>".
         final_text = re.sub(
             r"(?i)\b(?:you\s+can\s+)?(?:visit|find|see|access|view)\s+(?:it|the\s+(?:site|website|page))?\s*"
-            r"(?:at|on|here:?)\s+\[?https?://[^\s)\]]+\]?(?:\([^)]*\))?",
-            "see the link below", final_text or "")
+            r"(?:at|on|here:?)\s+\[?(" + _U + r")\]?(?:\([^)]*\))?",
+            lambda m: "" if not _keep_url(m.group(1)) else m.group(0), final_text or "")
+        # 2) Strip any remaining fabricated link (e.g. a standalone pasted domain) — never images ![..].
+        final_text = re.sub(r"(?<!\!)\[([^\]]*)\]\((https?://[^)]+)\)",
+                            lambda m: m.group(0) if _keep_url(m.group(2)) else "", final_text or "")
+        final_text = re.sub(_U,
+                            lambda m: m.group(0) if _keep_url(m.group(0)) else "", final_text or "")
+        # 3) Tidy empty link shells and collapsed blank lines.
+        final_text = re.sub(r"\[[^\]]*\]\(\s*\)", "", final_text or "")
+        final_text = re.sub(r"\n{3,}", "\n\n", final_text or "").strip()
     # Make sure every REAL page link is shown.
     for link in real_pages:
         if link not in (final_text or ""):
