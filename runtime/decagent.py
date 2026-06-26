@@ -352,6 +352,9 @@ def _run_openai(agent, message, history, cfg):
                       and "gotitsuperstore" not in _ml
                       and not re.search(r"\bmy\s+(own\s+)?(site|website|web\s?page)\b", _ml))
     nudged_build = False
+    _BUILD_NUDGE = ("Now ACTUALLY publish it: call the build_site tool with the chosen template and a "
+                    "fields object of the real text (brand, headline, menu/services, contact). Don't "
+                    "just describe it — call build_site so the user gets the live link.")
     for _ in range(MAX_TURNS):
         if time.time() > deadline:   # never hang — return whatever we have
             if not final_text:
@@ -424,6 +427,14 @@ def _run_openai(agent, message, history, cfg):
             # stop looping and synthesize the answer from what we already have — never burn the
             # whole budget repeating a tool and then returning "(No answer was produced)".
             if (not new_info) or any(c >= 4 for c in tool_call_counts.values()):
+                # Exception: a NEW-site request that browsed templates but is spinning without ever
+                # publishing — nudge it ONCE to actually call build_site instead of giving up here.
+                if (wants_new_site and not nudged_build
+                        and any(s.get("name") == "list_templates" for s in steps)
+                        and not any(s.get("name") == "build_site" for s in steps)):
+                    nudged_build = True
+                    messages.append({"role": "user", "content": _BUILD_NUDGE})
+                    continue
                 break
             continue
         # Leaked tool calls: some models (kimi/qwen/gpt-oss) emit <function=name>{...} as TEXT
@@ -455,10 +466,7 @@ def _run_openai(agent, message, history, cfg):
                 and "/p/" not in content0):
             nudged_build = True
             messages.append({"role": "assistant", "content": content0})
-            messages.append({"role": "user", "content": (
-                "Now ACTUALLY publish it: call the build_site tool with the chosen template and a "
-                "fields object of the real text (brand, headline, menu/services, contact). Don't just "
-                "describe it — call build_site so the user gets the live link.")})
+            messages.append({"role": "user", "content": _BUILD_NUDGE})
             continue
         final_text = content0
         break
