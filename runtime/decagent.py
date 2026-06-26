@@ -600,6 +600,42 @@ def _run_openai(agent, message, history, cfg):
                         final_text = re.sub(r"<html[\s\S]*?</html>", "", final_text or "", flags=re.I)
                 except Exception:
                     pass
+    # GUARANTEED DELIVERY: the user asked for a NEW site but nothing got published (the model
+    # wandered, called build_site wrong, hit the rate-limited fallback model, or never called it).
+    # Build one ourselves — this is a pure server-side template render (NO LLM), so it works even
+    # when the model is degraded/rate-limited. A real, styled, correctly-branded page beats an empty
+    # promise or a fabricated URL every time; the user can then ask to refine the copy.
+    if wants_new_site and not real_pages:
+        btf = _import_local("builtin_tools")
+        if btf:
+            mm = _ml
+            if re.search(r"\b(coffee|caf[eé]|restaurant|menu|food|bakery|bar|bistro|dining|diner|salon|barber|shop|store|grocer)\b", mm):
+                tpl = "restaurant"
+            elif re.search(r"\b(portfolio|designer|photograph|artist|freelanc|creative|illustrat|maker|model)\b", mm):
+                tpl = "portfolio"
+            elif re.search(r"\b(event|launch|conference|party|summit|meetup|festival|release|webinar|expo|gig|concert)\b", mm):
+                tpl = "event"
+            elif re.search(r"\b(agency|consult|firm|services|clinic|law|account|studio|company|corporate|advis)\b", mm):
+                tpl = "business"
+            else:
+                tpl = "landing"
+            brand = ""
+            bm = re.search(r"\b(?:called|named|brand(?:ed)?)\s+([A-Za-z0-9][\w&'’\-]*(?:\s+[A-Za-z0-9][\w&'’\-]*){0,4})",
+                           message or "", re.I)
+            if bm:
+                brand = re.split(r"\b(?:on|in|at|with|for|located|website|site|that|which|where|near)\b",
+                                 bm.group(1), 1, flags=re.I)[0].strip().rstrip(".,")
+            fields = {}
+            if brand:
+                fields = {"BRAND": brand, "NAME": brand, "TITLE": brand}
+            try:
+                res = btf.execute("build_site", {"template": tpl, "title": brand, "fields": json.dumps(fields)})
+                mpf = re.search(r"/p/[A-Za-z0-9_\-]+", res or "")
+                if mpf:
+                    real_pages.append(mpf.group(0))
+                    steps.append({"type": "tool_result", "name": "build_site", "content": (res or "")[:500]})
+            except Exception:
+                pass
     # Strip any /p/ URL the model invented that isn't a real saved page (kills the 404s).
     if "/p/" in (final_text or ""):
         final_text = re.sub(r"/p/[A-Za-z0-9_\-]+",
