@@ -181,6 +181,119 @@ footer{text-align:center;color:var(--mut);padding:30px;border-top:1px solid var(
 <div class="slot"><span>{{S3_LABEL}}</span><b>{{S3_TIME}}</b></div></div></section>
 <footer id="rsvp">{{RSVP}}</footer></body></html>""",
     },
+    "blog": {
+        "desc": "Blog / magazine — editorial serif, featured story + article grid. Great for writers, publications, news, personal blogs.",
+        "defaults": {
+            "BRAND": "The Journal", "TAGLINE": "Words worth your time",
+            "FEAT_TITLE": "The headline of your featured story",
+            "FEAT_EXCERPT": "A compelling two-line standfirst that pulls the reader into the lead article and makes them want to read on.",
+            "FEAT_META": "Featured · 6 min read",
+            "P1_TITLE": "First article title", "P1_EXCERPT": "A short summary of what this post is about.", "P1_META": "Essays · 4 min",
+            "P2_TITLE": "Second article title", "P2_EXCERPT": "A short summary of what this post is about.", "P2_META": "Notes · 3 min",
+            "P3_TITLE": "Third article title", "P3_EXCERPT": "A short summary of what this post is about.", "P3_META": "Ideas · 5 min",
+            "FOOTER": "© 2026 The Journal · Subscribe for new posts",
+        },
+        "html": """<!doctype html><html lang="en"><head>__HEAD__<title>{{BRAND}}</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<style>:root{--bg:#fffdf8;--ink:#1d1b16;--mut:#6b6657;--accent:#9a3412;--line:#eae5d9;--card:#fff}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.7}
+h1,h2,h3{font-family:Fraunces,Georgia,serif;font-weight:600;letter-spacing:-.01em}
+.wrap{max-width:1020px;margin:0 auto;padding:0 6vw}
+header{text-align:center;padding:40px 6vw 16px;border-bottom:1px solid var(--line)}
+.logo{font-family:Fraunces,serif;font-size:34px}.tag{color:var(--mut);font-style:italic;margin-top:4px}
+.nav{display:flex;justify-content:center;gap:24px;padding:16px 0 0}.nav a{color:var(--mut);text-decoration:none;font-weight:500;font-size:14px;text-transform:uppercase;letter-spacing:.06em}
+.feat{padding:60px 0 30px;border-bottom:1px solid var(--line)}.feat .k{color:var(--accent);font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.08em}
+.feat h2{font-size:clamp(30px,5vw,48px);margin:10px 0 14px;max-width:18ch}.feat p{color:var(--mut);font-size:20px;max-width:60ch}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:34px;padding:44px 0 70px}
+.post .k{color:var(--accent);font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.06em}
+.post h3{font-size:22px;margin:8px 0 8px}.post p{color:var(--mut);margin:0}
+footer{border-top:1px solid var(--line);text-align:center;color:var(--mut);padding:34px}</style></head>
+<body><header><div class="logo">{{BRAND}}</div><div class="tag">{{TAGLINE}}</div>
+<nav class="nav"><a href="#">Latest</a><a href="#">Essays</a><a href="#">About</a></nav></header>
+<div class="wrap"><section class="feat"><div class="k">{{FEAT_META}}</div><h2>{{FEAT_TITLE}}</h2><p>{{FEAT_EXCERPT}}</p></section>
+<section class="grid">
+<article class="post"><div class="k">{{P1_META}}</div><h3>{{P1_TITLE}}</h3><p>{{P1_EXCERPT}}</p></article>
+<article class="post"><div class="k">{{P2_META}}</div><h3>{{P2_TITLE}}</h3><p>{{P2_EXCERPT}}</p></article>
+<article class="post"><div class="k">{{P3_META}}</div><h3>{{P3_TITLE}}</h3><p>{{P3_EXCERPT}}</p></article>
+</section></div><footer>{{FOOTER}}</footer></body></html>""",
+    },
+    "store": {
+        "desc": "Online store / e-commerce — product grid with prices and buy buttons. Great for shops, brands, makers selling products.",
+        "defaults": {
+            "BRAND": "Shop", "HERO_TITLE": "Products you'll love", "HERO_SUB": "A short line about your shop and what makes your products special.",
+            "CTA_LABEL": "Shop now",
+            "P1_NAME": "Product one", "P1_PRICE": "R000", "P1_DESC": "Short product description.",
+            "P2_NAME": "Product two", "P2_PRICE": "R000", "P2_DESC": "Short product description.",
+            "P3_NAME": "Product three", "P3_PRICE": "R000", "P3_DESC": "Short product description.",
+            "P4_NAME": "Product four", "P4_PRICE": "R000", "P4_DESC": "Short product description.",
+            "FOOTER": "© 2026 Shop · Free shipping over R500 · Secure checkout",
+        },
+        "html": """<!doctype html><html lang="en"><head>__HEAD__<title>{{BRAND}}</title>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+<style>:root{--bg:#ffffff;--ink:#15161a;--mut:#6a6f7a;--accent:#111827;--pop:#e11d48;--line:#ececf0;--soft:#f7f7f9}
+*{box-sizing:border-box}body{margin:0;font-family:Manrope,system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.6}
+.wrap{max-width:1100px;margin:0 auto;padding:0 5vw}
+header{display:flex;justify-content:space-between;align-items:center;padding:20px 5vw;border-bottom:1px solid var(--line)}
+.logo{font-weight:800;font-size:21px}.nav a{color:var(--mut);text-decoration:none;margin-left:22px;font-weight:600}
+.cart{background:var(--accent);color:#fff;padding:9px 16px;border-radius:9px;font-weight:700;text-decoration:none}
+.hero{text-align:center;padding:70px 5vw;background:var(--soft)}.hero h1{font-size:clamp(32px,5vw,52px);margin:0 0 12px}.hero p{color:var(--mut);font-size:19px;max-width:54ch;margin:0 auto 24px}
+.btn{background:var(--pop);color:#fff;padding:13px 26px;border-radius:10px;text-decoration:none;font-weight:700}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:26px;padding:54px 0 70px}
+.prod{border:1px solid var(--line);border-radius:14px;overflow:hidden}
+.prod .ph{height:180px;background:linear-gradient(135deg,#f0f0f4,#e2e2ea)}
+.prod .b{padding:16px}.prod h3{margin:0 0 4px;font-size:17px}.prod .desc{color:var(--mut);font-size:14px;margin:0 0 12px}
+.prod .row{display:flex;justify-content:space-between;align-items:center}.prod .price{font-weight:800}
+.add{background:var(--accent);color:#fff;border:0;padding:8px 14px;border-radius:8px;font-weight:700;text-decoration:none;font-size:14px}
+footer{border-top:1px solid var(--line);text-align:center;color:var(--mut);padding:30px}</style></head>
+<body><header><div class="logo">{{BRAND}}</div><nav class="nav"><a href="#shop">Shop</a><a href="#">About</a><a class="cart" href="#shop">Cart</a></nav></header>
+<section class="hero"><h1>{{HERO_TITLE}}</h1><p>{{HERO_SUB}}</p><a class="btn" href="#shop">{{CTA_LABEL}}</a></section>
+<section id="shop" class="wrap"><div class="grid">
+<div class="prod"><div class="ph"></div><div class="b"><h3>{{P1_NAME}}</h3><div class="desc">{{P1_DESC}}</div><div class="row"><span class="price">{{P1_PRICE}}</span><a class="add" href="#">Add to cart</a></div></div></div>
+<div class="prod"><div class="ph"></div><div class="b"><h3>{{P2_NAME}}</h3><div class="desc">{{P2_DESC}}</div><div class="row"><span class="price">{{P2_PRICE}}</span><a class="add" href="#">Add to cart</a></div></div></div>
+<div class="prod"><div class="ph"></div><div class="b"><h3>{{P3_NAME}}</h3><div class="desc">{{P3_DESC}}</div><div class="row"><span class="price">{{P3_PRICE}}</span><a class="add" href="#">Add to cart</a></div></div></div>
+<div class="prod"><div class="ph"></div><div class="b"><h3>{{P4_NAME}}</h3><div class="desc">{{P4_DESC}}</div><div class="row"><span class="price">{{P4_PRICE}}</span><a class="add" href="#">Add to cart</a></div></div></div>
+</div></section><footer>{{FOOTER}}</footer></body></html>""",
+    },
+    "nonprofit": {
+        "desc": "Nonprofit / charity / cause — mission hero, impact stats, donate CTA. Great for NGOs, foundations, community causes.",
+        "defaults": {
+            "BRAND": "Cause", "HERO_TITLE": "Together we can make a difference",
+            "HERO_SUB": "One or two sentences on your mission and the change you're working toward.",
+            "DONATE_LABEL": "Donate now",
+            "STAT1_NUM": "10,000+", "STAT1_LABEL": "people helped",
+            "STAT2_NUM": "120", "STAT2_LABEL": "volunteers",
+            "STAT3_NUM": "15", "STAT3_LABEL": "communities served",
+            "ABOUT_TITLE": "Our mission",
+            "ABOUT_TEXT": "Two or three sentences on who you are, the problem you tackle, and how donations and volunteers create real impact.",
+            "CONTACT_LINE": "hello@cause.org · +27 00 000 0000",
+        },
+        "html": """<!doctype html><html lang="en"><head>__HEAD__<title>{{BRAND}}</title>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@500;700;800&family=Inter:wght@400;500&display=swap" rel="stylesheet">
+<style>:root{--bg:#f3faf7;--ink:#102a23;--mut:#4f6b62;--accent:#0e8f6e;--accent2:#0b6b8f;--card:#fff;--line:#d9ece4}
+*{box-sizing:border-box}body{margin:0;font-family:Inter,system-ui,sans-serif;background:var(--bg);color:var(--ink);line-height:1.65}
+h1,h2,h3{font-family:Poppins,system-ui,sans-serif;font-weight:800}
+.wrap{max-width:1040px;margin:0 auto;padding:0 6vw}
+header{display:flex;justify-content:space-between;align-items:center;padding:20px 6vw}
+.logo{font-family:Poppins,sans-serif;font-weight:800;font-size:21px;color:var(--accent)}
+.nav a{color:var(--ink);text-decoration:none;margin-left:22px;font-weight:600}
+.btn{background:var(--accent);color:#fff;padding:12px 22px;border-radius:30px;text-decoration:none;font-weight:700}
+.hero{padding:80px 6vw;background:linear-gradient(135deg,#e7f6ef,#e3f0f6)}
+.hero h1{font-size:clamp(32px,5.5vw,54px);margin:0 0 16px;max-width:16ch}.hero p{color:var(--mut);font-size:20px;max-width:58ch;margin:0 0 28px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;padding:54px 0}
+.stat{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:28px;text-align:center}
+.stat .n{font-family:Poppins,sans-serif;font-weight:800;font-size:34px;color:var(--accent)}.stat .l{color:var(--mut);margin-top:4px}
+.about{padding:20px 0 60px}.about h2{font-size:30px;color:var(--accent2);margin:0 0 14px}.about p{color:var(--mut);max-width:70ch;font-size:18px}
+footer{background:var(--accent);color:#eafff7;padding:40px 6vw;text-align:center}footer a{color:#fff}
+@media(max-width:640px){.stats{grid-template-columns:1fr}}</style></head>
+<body><header><div class="logo">{{BRAND}}</div><nav class="nav"><a href="#mission">Mission</a><a href="#contact">Contact</a><a class="btn" href="#donate">{{DONATE_LABEL}}</a></nav></header>
+<section class="hero"><h1>{{HERO_TITLE}}</h1><p>{{HERO_SUB}}</p><a class="btn" href="#donate">{{DONATE_LABEL}}</a></section>
+<div class="wrap"><section class="stats">
+<div class="stat"><div class="n">{{STAT1_NUM}}</div><div class="l">{{STAT1_LABEL}}</div></div>
+<div class="stat"><div class="n">{{STAT2_NUM}}</div><div class="l">{{STAT2_LABEL}}</div></div>
+<div class="stat"><div class="n">{{STAT3_NUM}}</div><div class="l">{{STAT3_LABEL}}</div></div>
+</section><section id="mission" class="about"><h2>{{ABOUT_TITLE}}</h2><p>{{ABOUT_TEXT}}</p></section></div>
+<footer id="contact"><h2 id="donate" style="color:#fff;margin:0 0 10px">{{DONATE_LABEL}}</h2><p>{{CONTACT_LINE}} · <a href="#">Volunteer</a></p></footer></body></html>""",
+    },
 }
 
 

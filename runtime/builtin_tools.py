@@ -218,6 +218,63 @@ def _gemini_key():
     return ""
 
 
+def _pages_table():
+    return os.getenv("DECAGENT_PAGES_TABLE", "decagent_pages")
+
+
+def _page_save_db(pid, html, title=""):
+    """Best-effort: also store a published page in Supabase so its /p/ link survives a Render
+    restart/redeploy (the /tmp disk is wiped). No-op if Supabase isn't configured."""
+    url = (os.getenv("SUPABASE_URL") or "").rstrip("/")
+    key = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_KEY") or ""
+    if not (url and key):
+        return
+    try:
+        import requests
+        requests.post(f"{url}/rest/v1/{_pages_table()}",
+                      headers={"apikey": key, "Authorization": f"Bearer {key}",
+                               "Content-Type": "application/json",
+                               "Prefer": "resolution=merge-duplicates"},
+                      json={"pid": pid, "html": html, "title": (title or "")[:200]}, timeout=10)
+    except Exception:
+        pass
+
+
+def page_html(pid):
+    """Return a published page's HTML: local /tmp first (fast), then Supabase (durable across
+    restarts). Re-warms the local cache from the DB so the next hit is instant. None if missing."""
+    safe = os.path.basename(pid or "")
+    if not safe or not all(c.isalnum() or c in "_-" for c in safe):
+        return None
+    pages_dir = os.getenv("DECAGENT_PAGES_DIR", "/tmp/dgpages")
+    local = os.path.join(pages_dir, safe + ".html")
+    try:
+        if os.path.exists(local):
+            with open(local, encoding="utf-8") as f:
+                return f.read()
+    except Exception:
+        pass
+    url = (os.getenv("SUPABASE_URL") or "").rstrip("/")
+    key = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_KEY") or ""
+    if url and key:
+        try:
+            import requests
+            r = requests.get(f"{url}/rest/v1/{_pages_table()}?pid=eq.{safe}&select=html&limit=1",
+                             headers={"apikey": key, "Authorization": f"Bearer {key}"}, timeout=10)
+            if r.ok and r.json():
+                html = r.json()[0].get("html") or ""
+                try:   # warm the local cache for next time
+                    os.makedirs(pages_dir, exist_ok=True)
+                    with open(local, "w", encoding="utf-8") as f:
+                        f.write(html)
+                except Exception:
+                    pass
+                return html
+        except Exception:
+            pass
+    return None
+
+
 def _create_webpage(html, title=""):
     """Publish HTML to a live URL on THIS site (/p/{id}) and return a markdown link.
     No GitHub, no 404 — the page is saved and served by the app."""
@@ -246,6 +303,7 @@ def _create_webpage(html, title=""):
             f.write(h)
     except Exception as e:
         return f"(could not publish the page: {e})"
+    _page_save_db(pid, h, title)   # durable copy so the link survives restarts (if Supabase set)
     return f"[🔗 View your live page](/p/{pid})"
 
 
@@ -564,7 +622,8 @@ TOOLS = [
         "parameters": {"type": "object",
                        "properties": {
                            "template": {"type": "string",
-                               "description": "template name: landing, business, portfolio, restaurant, or event"},
+                               "description": ("template name: landing, business, portfolio, restaurant, "
+                                               "event, blog, store, or nonprofit")},
                            "title": {"type": "string", "description": "optional browser-tab title"},
                            "fields": {"type": "string",
                                "description": ("a JSON object (as a string) of the text to fill, e.g. "

@@ -325,16 +325,29 @@ def _run_openai(agent, message, history, cfg):
             "using their tools, like a hands-on copilot. Do the actual action when asked; if a needed "
             "app isn't connected yet, tell the user to link it at /connect and say which one."
         )
-    # Remind the agent of recent long-term memories so it doesn't forget past work.
+    # Learn from past work: surface memories RELEVANT to this message (keyword recall) plus the most
+    # recent ones, so the worker builds on what it already did instead of forgetting it.
     _bt0 = _import_local("builtin_tools")
-    if _bt0 and hasattr(_bt0, "recent_memories"):
+    if _bt0:
+        relevant = []
         try:
-            _mems = _bt0.recent_memories(5)
+            rec = _bt0.execute("recall", {"query": message}) if hasattr(_bt0, "execute") else ""
+            if rec and not rec.strip().startswith("(no memories"):
+                relevant = [ln[2:].strip() for ln in rec.splitlines() if ln.startswith("- ")]
         except Exception:
-            _mems = []
-        if _mems:
-            sys_prompt += ("\n\n# Memory — recent things you've saved (use if relevant)\n"
-                           + "\n".join(f"- {m}" for m in _mems))
+            relevant = []
+        try:
+            recent = _bt0.recent_memories(5) if hasattr(_bt0, "recent_memories") else []
+        except Exception:
+            recent = []
+        mems, seen = [], set()
+        for m in (relevant + recent):
+            if m and m not in seen:
+                seen.add(m)
+                mems.append(m)
+        if mems:
+            sys_prompt += ("\n\n# Memory — past work & facts you've learned (use if relevant)\n"
+                           + "\n".join(f"- {m}" for m in mems[:8]))
     messages = [{"role": "system", "content": sys_prompt}]
     messages += _history_msgs(history)
     messages.append({"role": "user", "content": message})
@@ -347,8 +360,10 @@ def _run_openai(agent, message, history, cfg):
     # Does the user want a NEW site built (not editing their own gotitsuperstore site)? If so and the
     # model browses templates but forgets to actually publish, we nudge it once to call build_site.
     _ml = (message or "").lower()
-    wants_new_site = (bool(re.search(r"\b(build|make|create|design|generate|need|want|switch)\b"
-                                     r"[^.?!\n]{0,40}\b(web\s?page|landing\s+page|website|site|template)\b", _ml))
+    wants_new_site = (bool(re.search(r"\b(build|make|create|design|generate|launch|set\s+up|need|want|switch)\b"
+                                     r"[^.?!\n]{0,48}\b(web\s?page|landing\s+page|website|site|template|blog|"
+                                     r"magazine|online\s+store|e-?commerce|store|shop|portfolio|nonprofit|"
+                                     r"non-profit|charity)\b", _ml))
                       and "gotitsuperstore" not in _ml
                       and not re.search(r"\bmy\s+(own\s+)?(site|website|web\s?page)\b", _ml))
     nudged_build = False
@@ -609,8 +624,19 @@ def _run_openai(agent, message, history, cfg):
         btf = _import_local("builtin_tools")
         if btf:
             mm = _ml
-            if re.search(r"\b(coffee|caf[eé]|restaurant|menu|food|bakery|bar|bistro|dining|diner|salon|barber|shop|store|grocer)\b", mm):
+            # Order matters: blog & nonprofit first; commerce-STRONG signals before restaurant so
+            # "online store that sells coffee" -> store, while "coffee shop" -> restaurant; the weak
+            # store/shop catch-all comes AFTER restaurant so "coffee shop"/"barber shop" stay hospitality.
+            if re.search(r"\b(blog|magazine|publication|news|journal|newsletter|editorial|column|gazette)\b", mm):
+                tpl = "blog"
+            elif re.search(r"\b(nonprofit|non-profit|charity|charit|ngo|foundation|donate|donation|cause|volunteer|fundrais)\b", mm):
+                tpl = "nonprofit"
+            elif re.search(r"\b(online\s+store|e-?commerce|sell|sells|selling|products?|boutique|merch|catalog|storefront|shopify|checkout)\b", mm):
+                tpl = "store"
+            elif re.search(r"\b(coffee|caf[eé]|restaurant|menu|food|bakery|bar|bistro|dining|diner|salon|barber|deli|grocer|eatery|kitchen)\b", mm):
                 tpl = "restaurant"
+            elif re.search(r"\b(store|shop|market)\b", mm):
+                tpl = "store"
             elif re.search(r"\b(portfolio|designer|photograph|artist|freelanc|creative|illustrat|maker|model)\b", mm):
                 tpl = "portfolio"
             elif re.search(r"\b(event|launch|conference|party|summit|meetup|festival|release|webinar|expo|gig|concert)\b", mm):
@@ -691,6 +717,25 @@ def _run_openai(agent, message, history, cfg):
                     btmod2.execute("remember", {"text": (fact or message or "")[:2000]})
                 except Exception:
                     pass
+
+    # Learn from this work: record a one-line memory whenever something concrete was produced, so
+    # the worker keeps a durable history of what it built and can recall/improve on it next time.
+    try:
+        made = []
+        if real_pages:
+            made.append("published a page " + real_pages[0])
+        if produced_image:
+            made.append("generated an image")
+        if produced_video:
+            made.append("generated a video")
+        if made:
+            btw = _import_local("builtin_tools")
+            if btw:
+                note = (f"[{agent.get('id', 'worker')}] " + (message or "").strip()[:140]
+                        + " -> " + ", ".join(made))
+                btw.execute("remember", {"text": note[:300]})
+    except Exception:
+        pass
     return (final_text or "").strip(), steps
 
 

@@ -30,7 +30,7 @@ import concurrent.futures, hmac, json, os, pathlib
 from typing import Optional
 from fastapi import FastAPI, HTTPException, Header
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, PlainTextResponse
 from pydantic import BaseModel
 
 from . import decagent  # reuse the runtime
@@ -45,6 +45,22 @@ app = FastAPI(title="Decagent API", version="0.1.0")
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"],
 )
+
+
+# Keep the Console INVISIBLE to the public web: every response tells search engines not to index
+# or follow it. Combined with /robots.txt and the noindex <meta> in the page, the app stays
+# reachable by anyone with the link + password, but won't show up in Google/Bing or be archived.
+@app.middleware("http")
+async def _no_index_header(request, call_next):
+    resp = await call_next(request)
+    resp.headers["X-Robots-Tag"] = "noindex, nofollow, noarchive, nosnippet"
+    return resp
+
+
+@app.get("/robots.txt", response_class=PlainTextResponse)
+def robots():
+    """Tell every crawler to stay out — the console is private."""
+    return "User-agent: *\nDisallow: /\n"
 
 # Hard wall-clock ceiling for a single agent run. A slow web search or a stuck
 # connected-app (Pipedream/MCP) call can otherwise hang the request forever; the
@@ -144,14 +160,22 @@ def run(req: RunRequest, authorization: Optional[str] = Header(default=None)):
 
 @app.get("/p/{pid}", response_class=HTMLResponse)
 def page(pid: str):
-    """Serve a webpage published by the create_webpage tool — a live URL on this site."""
+    """Serve a webpage published by create_webpage/build_site — a live URL on this site. Reads the
+    durable store (local /tmp first, then Supabase) so links survive a free-tier restart/redeploy."""
     safe = os.path.basename(pid or "")
     if not safe or not all(c.isalnum() or c in "_-" for c in safe):
         raise HTTPException(404, "not found")
+    try:
+        from . import builtin_tools as _bt
+        html = _bt.page_html(safe)
+    except Exception:
+        html = None
+    if html is not None:
+        return HTMLResponse(html, headers={"Cache-Control": "no-store"})
     path = os.path.join(os.getenv("DECAGENT_PAGES_DIR", "/tmp/dgpages"), safe + ".html")
-    if not os.path.exists(path):
-        raise HTTPException(404, "not found")
-    return FileResponse(path, media_type="text/html", headers={"Cache-Control": "no-store"})
+    if os.path.exists(path):
+        return FileResponse(path, media_type="text/html", headers={"Cache-Control": "no-store"})
+    raise HTTPException(404, "not found")
 
 
 @app.get("/debug/video")
