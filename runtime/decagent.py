@@ -198,20 +198,82 @@ def _backend_call(agent):
     return via_n8n()
 
 
+def _extract_json_object(s, start):
+    """From `start`, find the next '{' and return its brace-balanced object as a string (respecting
+    double-quoted strings + escapes), so it works even when the JSON value contains '}' — e.g. CSS
+    inside a create_webpage HTML arg. Returns None if there is no balanced object."""
+    i = s.find("{", start)
+    if i < 0:
+        return None
+    depth = 0
+    in_str = False
+    esc = False
+    for j in range(i, len(s)):
+        c = s[j]
+        if in_str:
+            if esc:
+                esc = False
+            elif c == "\\":
+                esc = True
+            elif c == '"':
+                in_str = False
+        elif c == '"':
+            in_str = True
+        elif c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                return s[i:j + 1]
+    return None
+
+
 def _parse_leaked_tools(content):
-    """Some Groq models (kimi/qwen/gpt-oss) emit tool calls as TEXT in their reply instead of via
-    the tool_calls field — e.g. <function=generate_image>{"prompt": "..."} or
-    <function(web_search)={"query": "..."}</function>. Extract (name, args_dict) pairs so the
-    runtime can run them for real (this is what makes those permanent models usable)."""
+    """Some models emit tool calls as TEXT instead of via the tool_calls field, in MANY shapes:
+        <function=generate_image>{"prompt":"..."}
+        <function(web_search)={"query":"..."}</function>
+        <function:create_webpage({"html":"...","title":"..."})</function>   <- colon + wrapped in parens
+        <function/web_search{...}/>
+        <functions.create_webpage>{...}
+    Extract (name, args_dict) pairs — using BRACE-BALANCED JSON extraction so it survives '}' inside
+    the args (CSS/HTML). This is what makes a leaked call runnable instead of dumped at the user."""
+    content = content or ""
     calls = []
-    for mm in re.finditer(r"<function[\s=(/]*([A-Za-z0-9_]+)\s*[)>=/]*\s*(\{[\s\S]*?\})", content or ""):
+    for m in re.finditer(r"<\s*function[\s=(/:]*([A-Za-z0-9_.]+)", content, re.I):
+        name = m.group(1).split(".")[-1]   # 'functions.create_webpage' -> 'create_webpage'
+        js = _extract_json_object(content, m.end())
+        if not js:
+            continue
         try:
-            args = json.loads(mm.group(2))
+            args = json.loads(js)
         except Exception:
-            args = {}
+            args = None
         if isinstance(args, dict):
-            calls.append((mm.group(1), args))
+            calls.append((name, args))
     return calls
+
+
+def _strip_leaked_blobs(text):
+    """Remove raw leaked <function ...>{...}</function> blobs (brace-balanced) from a reply, plus any
+    'Now let me call X ...' lead-in, so the user never sees tool-call code instead of a clean answer."""
+    t = text or ""
+    for _ in range(8):
+        m = re.search(r"<\s*function[\s=(/:]*[A-Za-z0-9_.]+", t, re.I)
+        if not m:
+            break
+        js = _extract_json_object(t, m.end())
+        end = m.end()
+        if js:
+            idx = t.find(js, m.end())
+            if idx >= 0:
+                end = idx + len(js)
+        tail = re.match(r"\s*\)?\s*>?\s*(?:</\s*function\s*>)?", t[end:])
+        if tail:
+            end += tail.end()
+        t = t[:m.start()] + t[end:]
+    # drop a dangling "Now, let me call create_webpage with this HTML content:" style lead-in
+    t = re.sub(r"(?im)^[ \t]*(?:now,?\s*)?(?:let me|i'?ll|i will|let'?s|going to)\s+(?:call|use|run|invoke)\s+\w+[^\n]*:?[ \t]*$", "", t)
+    return re.sub(r"\n{3,}", "\n\n", t).strip()
 
 
 def _get_openai_tools(agent):
@@ -521,9 +583,38 @@ def _run_openai(agent, message, history, cfg):
     if not answer:                               # never return blank
         answer = (tm.group(1).strip() if tm else raw.replace("<think>", "").replace("</think>", "").strip())
     final_text = answer or "(No answer was produced — please try again.)"
-    # Safety: strip any residual leaked tool-call syntax so the user never sees <function=...>.
-    if "<function" in (final_text or ""):
-        final_text = re.sub(r"<function[\s=(/][\s\S]{0,600}?\}\s*/?\s*>?\s*(?:</function>)?", "", final_text or "").strip()
+    # Safety: the model leaked a tool call as TEXT (e.g. "<function:create_webpage({...})</function>")
+    # instead of calling it — so the user got raw CODE and no link. RUN any leaked page/image/video
+    # call for real to recover the LINK, then remove the raw blob so they only ever see the clean link.
+    if "<function" in (final_text or "").lower():
+        recovered = []
+        _have_page = any(s.get("name") in ("create_webpage", "build_site")
+                         and "/p/" in (s.get("content") or "") for s in steps)
+        try:
+            for (lname, largs) in _parse_leaked_tools(final_text):
+                if lname not in ("create_webpage", "build_site", "generate_image", "generate_video"):
+                    continue
+                if lname in ("create_webpage", "build_site") and _have_page:
+                    continue   # a page was already published this run — don't make a duplicate
+                btx = _import_local("builtin_tools")
+                if not btx:
+                    continue
+                res = btx.execute(lname, largs) or ""
+                if "/p/" in res or "/media/" in res or "pollinations.ai" in res:
+                    recovered.append(res.strip())
+                    # record a step so the later safety nets TRUST this link (won't strip it as fake)
+                    steps.append({"type": "tool_result", "name": lname, "content": res[:600]})
+                    if lname in ("create_webpage", "build_site"):
+                        _have_page = True
+        except Exception:
+            pass
+        final_text = _strip_leaked_blobs(final_text)
+        for r in recovered:
+            lm = (re.search(r"\[[^\]]*\]\((?:/p/|/media/)[^)]+\)", r)
+                  or re.search(r"!\[[^\]]*\]\(https://image\.pollinations\.ai/[^)]+\)", r))
+            link = lm.group(0) if lm else r
+            if link and link not in (final_text or ""):
+                final_text = ((final_text or "").rstrip() + "\n\n" + link).strip()
         final_text = final_text or "(Working on it — please try again.)"
 
     # Models frequently call generate_image but forget to paste the returned image into
