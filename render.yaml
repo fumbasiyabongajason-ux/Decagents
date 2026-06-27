@@ -41,6 +41,14 @@ services:
         sync: false
       - key: PIPEDREAM_PROJECT_ID
         sync: false                 # proj_xxxxx
+      # --- Persistence: Supabase (published pages + worker memory survive restarts/redeploys). ---
+      # Set BOTH in the Render dashboard, then run the CREATE TABLE SQL once (decagent_memories,
+      # decagent_pages). Leave blank = pages/memory live only on the ephemeral /tmp disk (lost on
+      # restart). Verify at /debug/persist?pw=YOUR_PASSWORD -> "PERSISTENCE WORKING".
+      - key: SUPABASE_URL
+        sync: false                 # https://YOURPROJECT.supabase.co  (Supabase → Settings → API → Project URL)
+      - key: SUPABASE_KEY
+        sync: false                 # service_role secret (Supabase → Settings → API). Kept secret, never in git.
       - key: MCP_APP_SLUGS
         value: github,gitlab,slack,notion,jira,trello,linear,stripe,gmail,google_drive,google_sheets,google_docs,google_calendar,airtable,twitter,linkedin,wordpress,instagram,facebook_pages,reddit,youtube,discord,telegram_bot_api   # github + dev/work platforms first (copilot), then the rest. Bad/unconnected slugs are skipped safely. ANY of Pipedream's ~2,700 apps works — add its slug, then connect at /connect.
       - key: MCP_MAX_TOOLS
