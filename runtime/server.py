@@ -202,9 +202,12 @@ def debug_persist(pw: Optional[str] = None):
     import requests, time as _t
     url = (os.getenv("SUPABASE_URL") or "").rstrip("/")
     key = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_KEY") or ""
-    out = {"supabase_url_detected": bool(url), "supabase_key_detected": bool(key)}
+    out = {"supabase_url_detected": bool(url), "supabase_key_detected": bool(key),
+           "supabase_env_var_names_seen": sorted(n for n in os.environ if "SUPA" in n.upper())}
     if not (url and key):
-        out["status"] = "Supabase env NOT set — add SUPABASE_URL and SUPABASE_KEY in Render → Environment."
+        out["status"] = ("Supabase env NOT set (or named wrong) — the app needs SUPABASE_URL and "
+                         "SUPABASE_KEY in Render → Environment. 'supabase_env_var_names_seen' shows "
+                         "exactly which SUPA* vars the app currently sees.")
         return out
     hdr = {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json"}
     tag = "__persist_selftest__"
