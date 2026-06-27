@@ -193,6 +193,47 @@ def debug_video(pw: Optional[str] = None):
             "related_env_var_names": related}
 
 
+@app.get("/debug/persist")
+def debug_persist(pw: Optional[str] = None):
+    """TEMP — verify Supabase persistence end-to-end: env vars set? tables exist? can we
+    write+read+delete? Never returns secret values. Remove once confirmed working."""
+    if ACCESS_PASSWORD and not hmac.compare_digest(pw or "", ACCESS_PASSWORD):
+        raise HTTPException(401, "add ?pw=YOUR_PASSWORD")
+    import requests, time as _t
+    url = (os.getenv("SUPABASE_URL") or "").rstrip("/")
+    key = os.getenv("SUPABASE_KEY") or os.getenv("SUPABASE_SERVICE_KEY") or ""
+    out = {"supabase_url_detected": bool(url), "supabase_key_detected": bool(key)}
+    if not (url and key):
+        out["status"] = "Supabase env NOT set — add SUPABASE_URL and SUPABASE_KEY in Render → Environment."
+        return out
+    hdr = {"apikey": key, "Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+    tag = "__persist_selftest__"
+
+    def round_trip(table, row, filt):
+        try:
+            w = requests.post(f"{url}/rest/v1/{table}",
+                              headers={**hdr, "Prefer": "resolution=merge-duplicates,return=minimal"},
+                              json=row, timeout=12)
+            if not w.ok:
+                return {"ok": False, "error": f"write {w.status_code}: {(w.text or '')[:140]}"}
+            r = requests.get(f"{url}/rest/v1/{table}?{filt}&select=*&limit=1", headers=hdr, timeout=12)
+            got = bool(r.ok and r.json())
+            requests.delete(f"{url}/rest/v1/{table}?{filt}", headers=hdr, timeout=12)  # clean up
+            return {"ok": got} if got else {"ok": False, "error": "wrote but could not read back"}
+        except Exception as e:
+            return {"ok": False, "error": str(e)[:140]}
+
+    txt = tag + str(int(_t.time()))
+    out["decagent_pages"] = round_trip("decagent_pages",
+                                       {"pid": tag, "html": "<i>selftest</i>", "title": "selftest"},
+                                       f"pid=eq.{tag}")
+    out["decagent_memories"] = round_trip("decagent_memories", {"text": txt}, f"text=eq.{txt}")
+    ok = out["decagent_pages"].get("ok") and out["decagent_memories"].get("ok")
+    out["status"] = ("✅ PERSISTENCE WORKING — pages & memory survive restarts." if ok else
+                     "⚠️ Not fully working — see per-table error (usually: run the CREATE TABLE SQL once).")
+    return out
+
+
 @app.get("/", response_class=HTMLResponse)
 def home():
     """Serve the Decagent Console (the ChatGPT-style chat UI)."""
